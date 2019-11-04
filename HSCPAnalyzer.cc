@@ -30,10 +30,13 @@
 #include <sstream>
 #include <fstream>
 #include <sys/time.h>
-#include "SiPixelTemplate.cc"
 static int theVerboseLevel = {0};
 #include "VVIObjF.cc"
+#include "SiPixelTemplate.cc"
 #include "SiPixelTemplateReco.cc"
+
+#include "SiPixelTemplate2D.cc"
+#include "SiPixelTemplateReco2D.cc"
 
 #include "pixelTree.h"
 
@@ -63,8 +66,8 @@ static int theVerboseLevel = {0};
 #define TKPERCLMAX 100  
 #define DIGIMAX 200000
 // 0 -- Normal tracks, 1 -- HSCP only
-#define HSCPONLY 0
-
+#define HSCPONLY 0 
+#define TwoDTempAna
 
 using namespace std;
 
@@ -113,7 +116,7 @@ main(int argc, char **argv) {
   // Local variables 
   bool ydouble[TYSIZE], xdouble[TXSIZE];
   static float qscale, qscaleB, qscaleF, pcut, tkpcut, probQ, xs, ys, probQonTrack, probQonTrackTerm;
-  static float probQonTrackWMulti = 1 ;
+  static float probQonTrackWMulti;
   static float xhit, yhit, xrec, yrec, sigmax, sigmay, probx, proby, cotalpha, cotbeta, locBx, locBz, xoff, yoff, xtemp, ytemp;  
   static int sfile, nrun, external, sizex, sizey, layer, llayer, module, ladder, offladder, side, disk, blade, onblade, panel, lowpt;
   static int tladp1[4], qlad[4]={3, 7, 11, 16};
@@ -130,6 +133,14 @@ main(int argc, char **argv) {
   int mrow = TXSIZE, mcol = TYSIZE;    
   float xpitch, ypitch;
   int factorial(int);
+  
+  // For the 2D templates
+  int qbin2D;
+  static float probQonTrackWMulti2D;
+  static int edgeflagy = 0, edgeflagx = 0;
+  static float xrec2D, yrec2D, sigmax2D, sigmay2D, probQ2D, probQonTrack2D, probQonTrackTerm2D, deltay, probXY2D;
+  double log10probXY2D, log10probQ2D, log10probXYQ2D, logprobQonTrackWMulti2D, probXYQ2D;
+
 
   TFile hFile( "histo.root", "RECREATE" );
 
@@ -142,8 +153,8 @@ main(int argc, char **argv) {
   hp[1] = new TH1F("h202","vertex x",20,-1.,1.);      
   hp[2] = new TH1F("h203","vertex y",20,-1.,1.);      
   hp[3] = new TH1F("h204","vertex z",80,-8.,8.);     
-  hp[4] = new TH1F("h205","chi2/dof",50,0.,10.);      
-  hp[5] = new TH1F("h206","ProbXY",50,0.,1.);      
+  hp[4] = new TH1F("h205","",50,0.,10.);      
+  hp[5] = new TH1F("h206","ProbXY",50,0.,1.);
   hp[6] = new TH1F("h207","ProbQ",50,0.,1.);
   hp[7] = new TH1F("h208","ProbXYQ",50,0.,1.);      
   hp[8] = new TH1F("h209","log10(ProbXY)",nx,-12.,0.);      
@@ -154,30 +165,33 @@ main(int argc, char **argv) {
   hp[13] = new TH1F("h702","Normalized Cluster Charge (FPix)",nx,0.,60000.);
   hp[14] = new TH1F("h703","Cluster Charge (ProbXY > 0.01)",nx,0.,200000.);      
   hp[15] = new TH1F("h704","Cluster Charge (ProbQ>0.01)",nx,0.,200000.);
-  hp[16] = new TH1F("h705","Cluster Charge (ProbXYQ>0.01)",nx,0.,200000.);      
+  hp[16] = new TH1F("h705","Cluster Charge (ProbXYQ>0.01)",nx,0.,200000.);
   hp[17] = new TH1F("h106","dx_temp (bpix); #Deltax (#mum)",nx,-50.,50.);
   hp[18] = new TH1F("h117","dy_temp (bpix); #Deltay (#mum)",nx,-50.,50.);
   hp[19] = new TH1F("h118","Track pT; pT (GeV)",nx,0.,12.);
   hp[20] = new TH1F("h119","Track momentum; p (GeV)",nx,0.,12.);
-  hp[21] = new TH1F("h120","dof; ndof",20,-0.5,19.5);
-  hp[22] = new TH1F("h121","fraction RH w/ good probs; frac",50,0.,1.);
-  hp[23] = new TH1F("h122","Vertex NDOF; NDOF",50,-0.5,49.5);
-  hp[24] = new TH1F("h123","Vertex Chi2/NDof; Chi2/Dof",40,0.,20.);
-  hp[25] = new TH1F("h124","TkVx-PVx",50,-0.5,0.5);      
-  hp[26] = new TH1F("h125","TkVy-PVy",50,-0.5,0.5);      
-  hp[27] = new TH1F("h126","TkVz-PVz",100,-1.,1.);     
-  hp[28] = new TH1F("h127","Track Quality",17,-1.5,15.5);     
-  hp[29] = new TH1F("h213","Number of tracks",200,-0.5,999.5);
+  hp[21] = new TH1F("h120","ProbQ on tracks (w/ multipication)",50,0.,1.);
+  hp[22] = new TH1F("h121","log(probQ) on tracks (w/ multipication)",nx,-12.,0.);  
+  hp[23] = new TH1F("h122","ProbQ on tracks (w/ combine)",50,0.,1.);
+  hp[24] = new TH1F("h123","ProbQ2D",50,0.,1.);
+  hp[25] = new TH1F("h124","ProbQ2D on tracks (w/ multipication)",50,0.,1.);
+  hp[26] = new TH1F("h125","log(probQ2D) on tracks (w/ multipication)",nx,-12.,0.);  
+  hp[27] = new TH1F("h126","ProbQ2D on tracks (w/ combine)",50,0.,1.);
+  hp[28] = new TH1F("h127","probXY2D",50,0.,1.);
+  hp[29] = new TH1F("h213","ProbXYQ2D",50,0.,1.);      
+  
   hp[30] = new TH1F("h301","ProbQ on tracks (w/ multipication)",50,0.,1.);
   hp[31] = new TH1F("h302","log(probQ) on tracks (w/ multipication)",nx,-12.,0.);     
   hp[32] = new TH1F("h303","ProbQ on tracks (w/ combine)",50,0.,1.);
-  hp[33] = new TH1F("h304","FPix yhit (mod pixel); y (#mum)",160,-80,80);
+  hp[33] = new TH1F("h304","Track Quality",17,-1.5,15.5);     
   hp[34] = new TH1F("h218","After cuts: Track pT; pT (GeV)",nx,0.,12.);
-  hp[35] = new TH1F("h219","After cuts: Track momentum; p (GeV)",nx,0.,12.);
+  hp[35] = new TH1F("h219","Number of tracks",200,-0.5,999.5);
+  
   hp[36] = new TH1F("h220","After cuts: BPix cotalpha; cot(#alpha)",100,-1.0,1.0);
   hp[37] = new TH1F("h221","After cuts: BPix cotbeta; cot(#beta)",200,-10.,10.);
   hp[38] = new TH1F("h222","After cuts: FPix cotalpha; cot(#alpha)",50,0.0,1.0);
   hp[39] = new TH1F("h223","After cuts: FPix |cotbeta|; |cot(#beta)|",50,0.0,1.0);
+  
   hp[40] = new TH1F("h107","dx_temp (fpix); #Deltax (#mum)",nx,-100.,100.);
   hp[41] = new TH1F("h138","dy_temp (fpix); #Deltay (#mum)",nx,-100.,100.);
   hp[42] = new TH1F("h801","dx_temp (BP L1); #Deltax (#mum)",nx,-100.,100.);
@@ -205,7 +219,8 @@ main(int argc, char **argv) {
   }
   
   TChain chain("pixelTree");
-  chain.Add("pixelTreeWithSimInfo.root");
+ chain.Add("pixelTreeWithSimInfo.root");
+//   chain.Add("pixelTreeWALCARECOs.root");
 //  chain.Add("4pixelTree_Signal.root"); 
 //   chain.Add("4pixelTree.root"); 
   // Template reading
@@ -241,10 +256,9 @@ main(int argc, char **argv) {
 // fptmp[side][disk][rindex] ;rindex = 0 [R2,P1], 1 [R1,P1], 2 [R1,P2], 3 [R2,P2]  
   fptmp[0][0][0] = fpr2p1; fptmp[0][1][0] = fpr2p1; fptmp[0][2][0] = fpr2p1; fptmp[1][0][0] = fpr2p1; fptmp[1][1][0] = fpr2p1; fptmp[1][2][0] = fpr2p1; fptmp[0][0][1] = fpr1p1; fptmp[0][1][1] = fpr1p1; fptmp[0][2][1] = fpr1p1; fptmp[1][0][1] = fpr1p1; fptmp[1][1][1] = fpr1p1; fptmp[1][2][1] = fpr1p1; fptmp[0][0][2] = fpr1p2; fptmp[0][1][2] = fpr1p2; fptmp[0][2][2] = fpr1p2; fptmp[1][0][2] = fpr1p2; fptmp[1][1][2] = fpr1p2; fptmp[1][2][2] = fpr1p2; fptmp[0][0][3] = fpr2p2; fptmp[0][1][3] = fpr2p2; fptmp[0][2][3] = fpr2p2; fptmp[1][0][3] = fpr2p2; fptmp[1][1][3] = fpr2p2; fptmp[1][2][3] = fpr2p2; 
   
+  // Initialize 1D templates
   std::vector< SiPixelTemplateStore > thePixelTemp_;
   SiPixelTemplate templ(thePixelTemp_);
-  
-  
   
   ID = bpl1;      templ.pushfile(ID,thePixelTemp_);
   templ.interpolate(ID, 0.f, 0.f, 1.f, 1.f); // Q: interpolate to what exactly?
@@ -258,6 +272,23 @@ main(int argc, char **argv) {
   ID = fpr1p1;    templ.pushfile(ID,thePixelTemp_);
   ID = fpr1p2;    templ.pushfile(ID,thePixelTemp_);
   ID = fpr2p2;    templ.pushfile(ID,thePixelTemp_);
+  
+  // Initialize 2D templates
+  std::vector< SiPixelTemplateStore2D > thePixelTemp2D_;
+  SiPixelTemplate2D templ2D(thePixelTemp2D_);
+  
+  ID = bpl1;      templ2D.pushfile(ID,thePixelTemp2D_);
+  templ2D.interpolate(ID, 0.f, 0.f, 1.f, 1.f); // Q: interpolate to what exactly?
+  xpitch = templ2D.xsize();
+  ypitch = templ2D.ysize();
+  printf("\n xpitch/ypitch = %f/%f \n\n", xpitch, ypitch);
+  ID = bpl2;     templ2D.pushfile(ID,thePixelTemp2D_);  
+  ID = bpl3;      templ2D.pushfile(ID,thePixelTemp2D_);
+  ID = bpl4;      templ2D.pushfile(ID,thePixelTemp2D_);
+  ID = fpr2p1;    templ2D.pushfile(ID,thePixelTemp2D_);
+  ID = fpr1p1;    templ2D.pushfile(ID,thePixelTemp2D_);
+  ID = fpr1p2;    templ2D.pushfile(ID,thePixelTemp2D_);
+  ID = fpr2p2;    templ2D.pushfile(ID,thePixelTemp2D_);
 
   // Other inits
   speed = -2;
@@ -368,8 +399,6 @@ main(int argc, char **argv) {
       hp[1]->Fill(ana->PvX[i]);
       hp[2]->Fill(ana->PvY[i]);
       hp[3]->Fill(ana->PvZ[i]);
-      hp[23]->Fill(ana->PvNdof[i]);
-      hp[24]->Fill((ana->PvChi2[i]/ana->PvNdof[i]));
 
       if(ana->PvIsFake[i] == 1) continue;
       if(fabsf(ana->PvX[i]) > 0.3) continue;
@@ -379,7 +408,7 @@ main(int argc, char **argv) {
       vtxok[i] = true;	
     }
     
-    hp[29]->Fill(iTkN);
+    hp[35]->Fill(iTkN);
 
 //     if(pvs>0) {
 //        if(pvs>maxVtx) {
@@ -411,7 +440,9 @@ main(int argc, char **argv) {
 
 // Loop over all tracks in the event
 //iTkN = 10;      
+    if (debug>2) cout << "----------- Loop over tracks -----------" <<endl;  
     for(int iTk = 0; iTk<iTkN; ++iTk) {
+      
       // Require at least 3 pixel clusters on the track   
       int iTkClN = ana->TkClN[iTk];
       int TkClN = iTkClN; if(TkClN < 2) continue;
@@ -433,11 +464,6 @@ main(int argc, char **argv) {
       if(!layer1) continue;
         
       // Add track selection requirements
-      float fTkChi2 = ana->TkChi2[iTk];
-      int iTkNdof = ana->TkNdof[iTk];
-      hp[4]->Fill((fTkChi2/iTkNdof));
-      hp[21]->Fill(iTkNdof);
-
       double dvx = (double)(ana->TkVx[iTk]-(ana->PvX[0]));
       double dvy = (double)(ana->TkVy[iTk]-(ana->PvY[0]));
       double dvz = (double)(ana->TkVz[iTk]-(ana->PvZ[0]));
@@ -458,10 +484,7 @@ main(int argc, char **argv) {
         }
       }
       if(!vtxgood) continue;              
-      hp[25]->Fill(dvx);
-      hp[26]->Fill(dvy);
-      hp[27]->Fill(dvz);
-      hp[28]->Fill(ana->TkQuality[iTk]);
+      hp[33]->Fill(ana->TkQuality[iTk]);
       
       // Make tight vertex cuts to suppress conversions and secondard interactions
         
@@ -487,7 +510,6 @@ main(int argc, char **argv) {
                 
       // p,pt after cuts
       hp[34]->Fill(ana->TkPt[iTk]);
-      hp[35]->Fill(TkP);
         
       int iTkPt = (int)(ana->TkPt[iTk]/0.1f);
       if(iTkPt > 10) iTkPt = 10;
@@ -495,11 +517,14 @@ main(int argc, char **argv) {
       // Add initializations here
       bool large_pix = false;
       probQonTrackWMulti = 1 ;
+      probQonTrackWMulti2D = 1 ;
         
       // Loop over pixel clusters
       int nprobQOnTrack = 0;
+      int nprobQOnTrack2D = 0;
+      if (debug>2) cout << "----------- Loop over clusters on track -----------" <<endl;  
       for(int iTkCl = 0; iTkCl < TkClN; ++iTkCl) {
-          
+        
         cotalpha = TMath::Tan(TMath::Pi()/2. - ana->TkAlpha[iTk][iTkCl]); 
         cotbeta = TMath::Tan(TMath::Pi()/2. - ana->TkBeta[iTk][iTkCl]);
         if(ana->ClDisk[ana->TkClI[iTk][iTkCl]] < -10) {
@@ -679,15 +704,39 @@ main(int argc, char **argv) {
           
           if((xhmod < 400.) || (xhmod > 7700.)) continue;
           if(yhmod < 600. || yhmod > 7500.) continue;
+
+          // check if there are HSCPs on the track, exit if not == check if there are SM particles, exit if yes
+//           if ((ana->ClSimHitPID[iCl][0]<1000000||ana->ClSimHitPID[iCl][0]>10000000)) continue;
+          int PID0=abs(ana->ClSimHitPID[iCl][0]);
+          int PID1=abs(ana->ClSimHitPID[iCl][1]);
+          int PID2=abs(ana->ClSimHitPID[iCl][2]);
+          int PID3=abs(ana->ClSimHitPID[iCl][3]);
+          int PID4=abs(ana->ClSimHitPID[iCl][4]);
+          int PID5=abs(ana->ClSimHitPID[iCl][5]);
+          int PID6=abs(ana->ClSimHitPID[iCl][6]);
+          int PID7=abs(ana->ClSimHitPID[iCl][7]);
+          int PID8=abs(ana->ClSimHitPID[iCl][8]);
+          int PID9=abs(ana->ClSimHitPID[iCl][9]);
+          bool PID0isHSCP = (PID0==1000993||PID0==1009213||PID0==1009313||PID0==1009323||PID0==1009113||PID0==1009223||PID0==1009333||PID0==1091114||PID0==1092114||PID0==1092214||PID0==1092224||PID0==1093114||PID0==1093214||PID0==1093224||PID0==1093314||PID0==1093324||PID0==1093334);
+          bool PID1isHSCP = (PID1==1000993||PID1==1009213||PID1==1009313||PID1==1009323||PID1==1009113||PID1==1009223||PID1==1009333||PID1==1091114||PID1==1092114||PID1==1092214||PID1==1092224||PID1==1093114||PID1==1093214||PID1==1093224||PID1==1093314||PID1==1093324||PID1==1093334);
+          bool PID2isHSCP = (PID2==1000993||PID2==1009213||PID2==1009313||PID2==1009323||PID2==1009113||PID2==1009223||PID2==1009333||PID2==1091114||PID2==1092114||PID2==1092214||PID2==1092224||PID2==1093114||PID2==1093214||PID2==1093224||PID2==1093314||PID2==1093324||PID2==1093334);
+          bool PID3isHSCP = (PID3==1000993||PID3==1009213||PID3==1009313||PID3==1009323||PID3==1009113||PID3==1009223||PID3==1009333||PID3==1091114||PID3==1092114||PID3==1092214||PID3==1092224||PID3==1093114||PID3==1093214||PID3==1093224||PID3==1093314||PID3==1093324||PID3==1093334);
+          bool PID4isHSCP = (PID4==1000993||PID4==1009213||PID4==1009313||PID4==1009323||PID4==1009113||PID4==1009223||PID4==1009333||PID4==1091114||PID4==1092114||PID4==1092214||PID4==1092224||PID4==1093114||PID4==1093214||PID4==1093224||PID4==1093314||PID4==1093324||PID4==1093334);
+          bool PID5isHSCP = (PID5==1000993||PID5==1009213||PID5==1009313||PID5==1009323||PID5==1009113||PID5==1009223||PID5==1009333||PID5==1091114||PID5==1092114||PID5==1092214||PID5==1092224||PID5==1093114||PID5==1093214||PID5==1093224||PID5==1093314||PID5==1093324||PID5==1093334);
+          bool PID6isHSCP = (PID6==1000993||PID6==1009213||PID6==1009313||PID6==1009323||PID6==1009113||PID6==1009223||PID6==1009333||PID6==1091114||PID6==1092114||PID6==1092214||PID6==1092224||PID6==1093114||PID6==1093214||PID6==1093224||PID6==1093314||PID6==1093324||PID6==1093334);
+          bool PID7isHSCP = (PID7==1000993||PID7==1009213||PID7==1009313||PID7==1009323||PID7==1009113||PID7==1009223||PID7==1009333||PID7==1091114||PID7==1092114||PID7==1092214||PID7==1092224||PID7==1093114||PID7==1093214||PID7==1093224||PID7==1093314||PID7==1093324||PID7==1093334);
+          bool PID8isHSCP = (PID8==1000993||PID8==1009213||PID8==1009313||PID8==1009323||PID8==1009113||PID8==1009223||PID8==1009333||PID8==1091114||PID8==1092114||PID8==1092214||PID8==1092224||PID8==1093114||PID8==1093214||PID8==1093224||PID8==1093314||PID8==1093324||PID8==1093334);
+          bool PID9isHSCP = (PID9==1000993||PID9==1009213||PID9==1009313||PID9==1009323||PID9==1009113||PID9==1009223||PID9==1009333||PID9==1091114||PID9==1092114||PID9==1092214||PID9==1092224||PID9==1093114||PID9==1093214||PID9==1093224||PID9==1093314||PID9==1093324||PID9==1093334);
 #if HSCPONLY == 1
-          // check if there are HSCPs on the track, exit if not
-          if (ana->ClSimHitPID[iCl][0]<1000000||ana->ClSimHitPID[iCl][0]>10000000) continue;
+          if (!(PID0isHSCP|| PID1isHSCP || PID2isHSCP || PID3isHSCP || PID4isHSCP || PID5isHSCP || PID6isHSCP || PID7isHSCP || PID8isHSCP || PID9isHSCP)
+              ) continue;
 #else
+           if ((PID0isHSCP|| PID1isHSCP || PID2isHSCP || PID3isHSCP || PID4isHSCP || PID5isHSCP || PID6isHSCP || PID7isHSCP || PID8isHSCP || PID9isHSCP)
+              ) continue;
           // no cut if the mixure/normal track are studied
 #endif
           
-          
-          // Do the template analysis on the cluster 
+          // 1D templat analysis
           SiPixelTemplateReco::ClusMatrix clusterPayload{&cluster[0][0], xdouble, ydouble, mrow,mcol};
           locBx = 1.;
           if(cotbeta < 0.) locBx = -1.;
@@ -699,14 +748,15 @@ main(int argc, char **argv) {
             ++nbad;
             if(nbad < 50) {printf("ID %d reco of cotalpha/cotbeta = %f/%f failed with error %d \n", ID, cotalpha, cotbeta, ierr);}
           } else {
+//             if (debug>2) cout << "----------- 1D template analysis on a cluster -----------" <<endl;  
             xtemp = xoff + xrec;
             ytemp = yoff + yrec;
             dx = xtemp - xhit;
             dy = ytemp - yhit;
             
-// Check resolution and weights 
+            // Check resolution and weights 
 //        if(qbin > 3) {printf(" qbin = %d \n", qbin);}
-            if (debug>2) cout << "probQ in cluster " << iTkCl << " is " << probQ <<endl;
+            if (debug>2) cout << "probQ in cluster " << iTkCl <<  " on Layer-"  <<  ana->ClLayer[iTkCl] << " or on Disk-" << ana->ClDisk[iTkCl] << " is " << probQ <<endl;
             proba = probx*proby;
             probXY = proba*(1.-log(proba));
             proba = probx*proby*probQ;
@@ -716,8 +766,6 @@ main(int argc, char **argv) {
             log10probXYQ = log10(probXYQ);
             hp[5]->Fill(probXY);
             hp[6]->Fill(probQ);
-            
-            
             hp[7]->Fill(probXYQ);
             hp[8]->Fill(log10probXY);
             hp[9]->Fill(log10probQ);
@@ -745,28 +793,113 @@ main(int argc, char **argv) {
             }
             if(probXY < pcut) continue;
             if (probQ!=0) nprobQOnTrack++;
+//             if (probQ<0.1) cout << "PID0: " <<  PID0 << endl;
             probQonTrackWMulti *= probQ;
 //             cout << "probQonTrackWMulti " << probQonTrackWMulti <<endl;
 //             if(probQonTrackWMulti > 0.00000001) cout << "log probQonTrackWMulti " << log(probQonTrackWMulti) << endl;
-          } // end if there is no error from the template analysis
+          } // end if there is no error from the template analysis 1D
+#ifdef TwoDTempAna
+          // 2D template analysis
+          SiPixelTemplateReco2D::ClusMatrix clusterPayload2d{&cluster[0][0], xdouble, ydouble, mrow,mcol}; // was with &cluster2d[0][0]
+          int npixels;
+          ierr = PixelTempReco2D(ID, cotalpha, cotbeta, locBz, locBx, edgeflagy, edgeflagx, clusterPayload2d, templ2D, yrec2D, sigmay2D, xrec2D, sigmax2D, probXY2D, probQ2D, qbin2D, deltay,npixels); 
+          if(ierr != 0) {
+            ++nbad;
+            if(nbad < 50) {printf("ID %d reco of cotalpha/cotbeta = %f/%f failed with error %d \n", ID, cotalpha, cotbeta, ierr);}
+          } else {
+//             if (debug>2) cout << "----------- 2D template analysis on a cluster -----------" <<endl;
+            xtemp = xoff + xrec2D;
+            ytemp = yoff + yrec2D;
+            dx = xrec2D - xhit;
+            dy = yrec2D - yhit;
+
+            // Check resolution and weights 
+//          if(qbin > 3) {printf(" qbin = %d \n", qbin);}
+            if (debug>2) cout << "probQ2D in cluster " << iTkCl << " on Layer-"  <<  ana->ClLayer[iTkCl] << " or on Disk-" << ana->ClDisk[iTkCl] << " is " << probQ2D <<endl;
+            proba = probXY2D*probQ2D;
+            probXYQ2D = proba*(1.-log(proba)+0.5*log(proba)*log(proba));
+            log10probQ2D = log10((double)probQ2D);
+            log10probXY2D = log10(probXY2D);
+            log10probXYQ2D = log10(probXYQ2D);
+
+            hp[24]->Fill(probQ2D);
+            hp[28]->Fill(probXY2D);
+            hp[29]->Fill(probXYQ2D);
+            
+//             hp[9]->Fill(log10probQ2D);
+//             hp[10]->Fill(log10probXYQ2D);
+//             if(probQ2D > 0.01) hp[11]->Fill(log10probXY2D);
+//             qnorm = qclust/sqrt((double)(1.+cotbeta*cotbeta+cotalpha*cotalpha)); 
+//             if(bpix) {hp[12]->Fill(qnorm);} else {hp[13]->Fill(qnorm);};
+//             if(probXY2D > 0.01) {hp[14]->Fill(qclust);}
+//             if(probQ2D > 0.01) {hp[15]->Fill(qclust);}
+//             if(probXYQ > 0.01) {hp[16]->Fill(qclust);}
+//             if(bpix) {
+//               hp[17]->Fill(dx);
+//               hp[18]->Fill(dy);
+//               int ihist = 42 + (layer-1)*2;
+//               hp[ihist]->Fill(dx);
+//               hp[ihist+1]->Fill(dy);
+//               ++alltrk[layer-1][iTkPt];
+//               if(fabs(cotalpha) <=0.3f) {++acctrk[layer-1][iTkPt];}
+//             } else {
+//               hp[40]->Fill(dx);
+//               hp[41]->Fill(dy);
+//               int ihist = 50 + (llayer-1)*2;
+//               hp[ihist]->Fill(dx);
+//               hp[ihist+1]->Fill(dy);
+//             }
+            if(probXY2D < pcut) continue;
+            if (probQ2D!=0) nprobQOnTrack2D++;
+            probQonTrackWMulti2D *= probQ2D;
+//             cout << "probQonTrackWMulti2D " << probQonTrackWMulti2D <<endl;
+//             if(probQonTrackWMulti2D > 0.00000001) cout << "log probQonTrackWMulti2D " << log(probQonTrackWMulti2D) << endl;
+          } // end if there is no error from the template analysis 2D
+#endif
         } // end of loop over pixel clusters
-        if(nprobQOnTrack < 2 || nprobQOnTrack!=TkClN) continue;
+        if (debug>2) cout << "----------- ON TRACK INFO -----------" <<endl;  
+        if(nprobQOnTrack!=TkClN) {
+            if (debug>2) cout << "Error: nprobQOnTrack!=TkClN" << endl;
+            continue;
+        }
+        if(nprobQOnTrack < 2) {
+            if (debug>2) cout << "Error: nprobQOnTrack==TkClN but nprobQOnTrack < 2" << endl;
+            continue;
+        }
 	if (debug>2) cout << "nprobQOnTrack: " << nprobQOnTrack << endl;
         if (debug>1) cout << "probQonTrackWMulti outside the cluster loop is " << probQonTrackWMulti <<endl;
-        hp[30]->Fill(probQonTrackWMulti);
+        hp[21]->Fill(probQonTrackWMulti);
         logprobQonTrackWMulti = log(probQonTrackWMulti);
-        if(probQ > 0.00001) hp[31]->Fill(logprobQonTrackWMulti);
+        if(probQ > 0.00001) hp[22]->Fill(logprobQonTrackWMulti);
         probQonTrackTerm = 0;
         for(int iTkCl = 0; iTkCl < nprobQOnTrack; ++iTkCl) {
             probQonTrackTerm += ((pow(-logprobQonTrackWMulti,iTkCl))/(factorial(iTkCl)));
 //             cout << "For cluster " << iTkCl << " pow(-logprobQonTrackWMulti,iTkCl) is " << pow(-logprobQonTrackWMulti,iTkCl) << endl;
-            if (debug>1) cout << "For cluster " << iTkCl << " probQonTrackTerm is " << probQonTrackTerm << endl;
+            if (debug>1) cout << "For cluster " << iTkCl << " the probQonTrackTerm is " << probQonTrackTerm << endl;
         }
           
         probQonTrack = probQonTrackWMulti*probQonTrackTerm;
-        if (debug>0) cout << " probQonTrack " << probQonTrack << endl;
-        if (probQonTrack>0.98) cout << "probQonTrack is more then 0.98 in event " << event << endl;;
-        hp[32]->Fill(probQonTrack);
+        if (debug>0) cout << "   probQonTrack " << probQonTrack << endl;
+        if (debug>3) if (probQonTrack>0.98) cout << "probQonTrack is more then 0.98 in event " << event << endl;;
+        hp[23]->Fill(probQonTrack);
+#ifdef TwoDTempAna
+        if (debug>2) cout << "nprobQOnTrack2D: " << nprobQOnTrack2D << endl;
+        if (debug>1) cout << "probQonTrackWMulti2D outside the cluster loop is " << probQonTrackWMulti2D <<endl;
+        hp[25]->Fill(probQonTrackWMulti2D);
+        logprobQonTrackWMulti2D = log(probQonTrackWMulti2D);
+        if(probQ2D > 0.00001) hp[26]->Fill(logprobQonTrackWMulti2D);
+        probQonTrackTerm2D = 0;
+        for(int iTkCl = 0; iTkCl < nprobQOnTrack2D; ++iTkCl) {
+            probQonTrackTerm2D += ((pow(-logprobQonTrackWMulti2D,iTkCl))/(factorial(iTkCl)));
+//             cout << "For cluster " << iTkCl << " pow(-logprobQonTrackWMulti2D,iTkCl) is " << pow(-logprobQonTrackWMulti2D,iTkCl) << endl;
+            if (debug>1) cout << "For cluster " << iTkCl  << " the probQonTrackTerm2D is " << probQonTrackTerm2D << endl;
+        }
+          
+        probQonTrack2D = probQonTrackWMulti2D*probQonTrackTerm2D;
+        if (debug>0) cout << "   probQonTrack2D " << probQonTrack2D << endl;
+        if (debug>3) if (probQonTrack2D>0.98) cout << "probQonTrack2D is more then 0.98 in event " << event << endl;;
+        hp[27]->Fill(probQonTrack2D);
+#endif
       } // end of loop over tracks
    } //end cycle for events
 
@@ -777,20 +910,7 @@ main(int argc, char **argv) {
   cout << " BPix: min/max cot(alpha) = " << cotaminb << "/" << cotamaxb << ", min/max cot(beta) = " << cotbminb << "/" << cotbmaxb << endl;
   cout << " FPix: min/max cot(alpha) = " << cotaminf << "/" << cotamaxf << ", min/max cot(beta) = " << cotbminf << "/" << cotbmaxf << endl;
   cout << " FPix: min/max abs(cot(beta)) = " << cotabminf << "/" << cotabmaxf << endl;
-   
-   for(i=0; i<4; ++i) {
-      // Q: what is frac exactly? 
-      float frac[11];
-      for(j=0; j<11; ++j) {
-         frac[j] = 0.f;
-         if(alltrk[i][j] > 10) frac[j] = ((float)acctrk[i][j])/((float)alltrk[i][j]);
-       }
-       cout << "layer " << i << ": " << frac[0] << " " << frac[1] << " " << frac[2] << " " 
-       << frac[3] << " " << frac[4] << " " << frac[5] << " " << frac[6] << " " << frac[7] << " "
-       << frac[8] << " " << frac[9] << " " << frac[10] << endl;
-    }
-    
- 
+       
 /*
  * Histograms plotting
  */
@@ -800,13 +920,13 @@ main(int argc, char **argv) {
   
 //  Create an output filename for this run 
 #if HSCPONLY == 0
-   sprintf(outfile0,"1DReco_NormalTracks.pdf[");
-   sprintf(outfile1,"1DReco_NormalTracks.pdf");
-   sprintf(outfile2,"1DReco_NormalTracks.pdf]");
+   sprintf(outfile0,"NormalTracks.pdf[");
+   sprintf(outfile1,"NormalTracks.pdf");
+   sprintf(outfile2,"NormalTracks.pdf]");
 #elif HSCPONLY == 1
-   sprintf(outfile0,"1DReco_SignalOnly.pdf[");
-   sprintf(outfile1,"1DReco_SignalOnly.pdf");
-   sprintf(outfile2,"1DReco_SignalOnly.pdf]");
+   sprintf(outfile0,"SignalOnly.pdf[");
+   sprintf(outfile1,"SignalOnly.pdf");
+   sprintf(outfile2,"SignalOnly.pdf]");
 #endif
    TCanvas c1("c1", header);
    c1.SetFillStyle(4000);
