@@ -653,7 +653,10 @@ int SiPixelTemplateReco2D::PixelTempReco2D(int id, float cotalpha, float cotbeta
       float prvav = vvidist.fcn(xvav);
       float prvav_corr = vvidist.fcn(xvav_corr);
 //       std::cout << "prvav vs prvav_corr: " << prvav <<" vs "<< prvav_corr <<std::endl;
-      probQ = 1.f - prvav;
+      probQ = 1.f - prvav; // should be just the prvav
+      float probQ_corr;
+      probQ_corr = 1.f - prvav_corr;
+//       std::cout << "probQ vs probQ_corr: " << probQ <<" vs "<< probQ_corr <<std::endl;
    } else {
       probxy = chi2min[ipass];
       npixels = npixel;
