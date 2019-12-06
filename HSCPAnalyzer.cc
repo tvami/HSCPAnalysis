@@ -66,7 +66,7 @@ static int theVerboseLevel = {0};
 #define TKPERCLMAX 100  
 #define DIGIMAX 200000
 // 0 -- Normal tracks, 1 -- HSCP only
-#define HSCPONLY 0 
+#define HSCPONLY 1 
 #define TwoDTempAna
 
 using namespace std;
@@ -129,10 +129,11 @@ main(int argc, char **argv) {
   static int bptmp[4][8], fptmp[2][3][4], bpnew;
   static int acctrk[4][11], alltrk[4][11];
   static char infile[150], header[80], outfile[150], outfile0[80], outfile1[80], outfile2[80];
-  float cluster[TXSIZE][TYSIZE];
+  float cluster[TXSIZE][TYSIZE], cluster2d[TXSIZE][TYSIZE];
   int mrow = TXSIZE, mcol = TYSIZE;    
   float xpitch, ypitch;
   int factorial(int);
+  const std::string currentDate();
   
   // For the 2D templates
   int qbin2D;
@@ -141,8 +142,11 @@ main(int argc, char **argv) {
   static float xrec2D, yrec2D, sigmax2D, sigmay2D, probQ2D, probQonTrack2D, probQonTrackTerm2D, deltay, probXY2D;
   double log10probXY2D, log10probQ2D, log10probXYQ2D, logprobQonTrackWMulti2D, probXYQ2D;
 
-
-  TFile hFile( "histo.root", "RECREATE" );
+#if HSCPONLY == 1
+  TFile hFile( "histo_signal.root", "RECREATE" );
+#else
+  TFile hFile( "histo_normal.root", "RECREATE" );
+#endif
 
   int nx=120;  
   gStyle->SetOptFit(101);
@@ -161,8 +165,8 @@ main(int argc, char **argv) {
   hp[9] = new TH1F("h210","log10(ProbQ)",nx,-12.,0.);     
   hp[10] = new TH1F("h211","log10(ProbXYQ)",nx,-12.,0.);      
   hp[11] = new TH1F("h212","log10(ProbXY) (ProbQ>0.01)",nx,-12.,0.);      
-  hp[12] = new TH1F("h701","Normalized Cluster Charge (BPix)",nx,0.,60000.);
-  hp[13] = new TH1F("h702","Normalized Cluster Charge (FPix)",nx,0.,60000.);
+  hp[12] = new TH1F("h701","Normalized Cluster Charge (BPix)",nx,0.,100000.);
+  hp[13] = new TH1F("h702","Normalized Cluster Charge (FPix)",nx,0.,100000.);
   hp[14] = new TH1F("h703","Cluster Charge (ProbXY > 0.01)",nx,0.,200000.);      
   hp[15] = new TH1F("h704","Cluster Charge (ProbQ>0.01)",nx,0.,200000.);
   hp[16] = new TH1F("h705","Cluster Charge (ProbXYQ>0.01)",nx,0.,200000.);
@@ -170,18 +174,18 @@ main(int argc, char **argv) {
   hp[18] = new TH1F("h117","dy_temp (bpix); #Deltay (#mum)",nx,-50.,50.);
   hp[19] = new TH1F("h118","Track pT; pT (GeV)",nx,0.,12.);
   hp[20] = new TH1F("h119","Track momentum; p (GeV)",nx,0.,12.);
-  hp[21] = new TH1F("h120","ProbQ on tracks (w/ multipication)",50,0.,1.);
-  hp[22] = new TH1F("h121","log(probQ) on tracks (w/ multipication)",nx,-12.,0.);  
-  hp[23] = new TH1F("h122","ProbQ on tracks (w/ combine)",50,0.,1.);
+  hp[21] = new TH1F("h120","ProbQ on tracks (w/ multiplication)",100,0.,1.);
+  hp[22] = new TH1F("h121","log(probQ) on tracks (w/ multiplication)",nx,-12.,0.);  
+  hp[23] = new TH1F("h122","ProbQ on tracks (w/ combine)",100,0.,1.);
   hp[24] = new TH1F("h123","ProbQ2D",50,0.,1.);
-  hp[25] = new TH1F("h124","ProbQ2D on tracks (w/ multipication)",50,0.,1.);
-  hp[26] = new TH1F("h125","log(probQ2D) on tracks (w/ multipication)",nx,-12.,0.);  
-  hp[27] = new TH1F("h126","ProbQ2D on tracks (w/ combine)",50,0.,1.);
+  hp[25] = new TH1F("h124","ProbQ2D on tracks (w/ multiplication)",100,0.,1.);
+  hp[26] = new TH1F("h125","log(probQ2D) on tracks (w/ multiplication)",nx,-12.,0.);  
+  hp[27] = new TH1F("h126","ProbQ2D on tracks (w/ combine)",100,0.,1.);
   hp[28] = new TH1F("h127","probXY2D",50,0.,1.);
   hp[29] = new TH1F("h213","ProbXYQ2D",50,0.,1.);      
   
-  hp[30] = new TH1F("h301","ProbQ on tracks (w/ multipication)",50,0.,1.);
-  hp[31] = new TH1F("h302","log(probQ) on tracks (w/ multipication)",nx,-12.,0.);     
+  hp[30] = new TH1F("h301","ProbQ on tracks (w/ multiplication)",50,0.,1.);
+  hp[31] = new TH1F("h302","log(probQ) on tracks (w/ multiplication)",nx,-12.,0.);     
   hp[32] = new TH1F("h303","ProbQ on tracks (w/ combine)",50,0.,1.);
   hp[33] = new TH1F("h304","Track Quality",17,-1.5,15.5);     
   hp[34] = new TH1F("h218","After cuts: Track pT; pT (GeV)",nx,0.,12.);
@@ -215,11 +219,19 @@ main(int argc, char **argv) {
   for(i=0; i<58; ++i) {
     hp[i]->SetLineColor(2);
     hp[i]->SetFillColor(38);
-    hp[i]->SetMinimum(0.0);
+     if (i==23 || i == 27) {
+      hp[i]->SetMinimum(1);
+     } else {
+      hp[i]->SetMinimum(0.0);
+    }
   }
   
   TChain chain("pixelTree");
- chain.Add("pixelTreeWithSimInfo.root");
+  //chain.Add("pixelTreeWithSimInfo.root");
+  //chain.Add("/afs/cern.ch/work/t/tvami/public/MonitoringTrees/CMSSW_11_0_0_pre9/src/pixelTreeBasedALCARECO.root");
+  //chain.Add("/afs/cern.ch/work/t/tvami/public/MonitoringTrees/CMSSW_11_0_0_pre9/src/onALCARECO_w4000event_wSingleThread/pixelTreeBasedALCARECO.root");
+  //chain.Add("4HSCP_DY_Mass800_PixelTree.root");
+  chain.Add("/afs/cern.ch/work/t/tvami/public/HSCP/HSCP/CMSSW_10_6_1_patch1/src/0RECOChain/HSCPSingalNoPU/4HSCP_Gluino_Mass800BasedpixelTreeWithSimInfo.root");
 //   chain.Add("pixelTreeWALCARECOs.root");
 //  chain.Add("4pixelTree_Signal.root"); 
 //   chain.Add("4pixelTree.root"); 
@@ -312,7 +324,7 @@ main(int argc, char **argv) {
   Long64_t nentries=chain.GetEntries(); 
   Long64_t nbytes = 0, nb = 0;
 
-  //nentries = 1;
+//   nentries = 1;
 
   cout << "Running over " << nentries << " events" << endl;
   for (Long64_t jentry=0; jentry<nentries;jentry++) {
@@ -339,7 +351,7 @@ main(int argc, char **argv) {
     int run = ana->run;
 
     if(jentry%1000 == 0) cout<<" jentry: "<< jentry <<" event: "<<event<<" run: "<<run<<" lumiSect: "<<lumiSect<<endl;
-    cout<<"jentry: "<<jentry <<" event: "<<event<<" run: "<<run<<" lumiSect: "<<lumiSect<<" bx: "<<bx<<endl;
+//     cout<<"jentry: "<<jentry <<" event: "<<event<<" run: "<<run<<" lumiSect: "<<lumiSect<<" bx: "<<bx<<endl;
 //     continue;
 
     const int SELECT_EVENT = 379330015;
@@ -633,7 +645,8 @@ main(int argc, char **argv) {
           // Look for clusters that traverse minimal material (layer 1, flipped modules)        
           //        if(ana->ClLayer[iCl] != 1 || fClFlipped[iCl] != 1) continue;
           
-          for(j=0; j<TXSIZE; ++j) {for(i=0; i<TYSIZE; ++i) {cluster[j][i] = 0.;} }        
+          for(j=0; j<TXSIZE; ++j) {for(i=0; i<TYSIZE; ++i) {cluster[j][i] = 0.;} }  
+          for(j=0; j<TXSIZE; ++j) {for(i=0; i<TYSIZE; ++i) {cluster2d[j][i] = 0.;} }  
           for(j=0; j<TXSIZE; ++j) {xdouble[j] = false;}  
           for(i=0; i<TYSIZE; ++i) {ydouble[i] = false;}
           large_pix = false;
@@ -685,6 +698,7 @@ main(int argc, char **argv) {
             
             // Set pixel charges          
             cluster[ix][iy] = qscale*1000.*ana->DgCharge[iDg];
+            cluster2d[ix][iy] = qscale*1000.*ana->DgCharge[iDg];
             
             // and double pixel flags          
             if (row == 79 || row == 80){
@@ -717,16 +731,16 @@ main(int argc, char **argv) {
           int PID7=abs(ana->ClSimHitPID[iCl][7]);
           int PID8=abs(ana->ClSimHitPID[iCl][8]);
           int PID9=abs(ana->ClSimHitPID[iCl][9]);
-          bool PID0isHSCP = (PID0==1000993||PID0==1009213||PID0==1009313||PID0==1009323||PID0==1009113||PID0==1009223||PID0==1009333||PID0==1091114||PID0==1092114||PID0==1092214||PID0==1092224||PID0==1093114||PID0==1093214||PID0==1093224||PID0==1093314||PID0==1093324||PID0==1093334);
-          bool PID1isHSCP = (PID1==1000993||PID1==1009213||PID1==1009313||PID1==1009323||PID1==1009113||PID1==1009223||PID1==1009333||PID1==1091114||PID1==1092114||PID1==1092214||PID1==1092224||PID1==1093114||PID1==1093214||PID1==1093224||PID1==1093314||PID1==1093324||PID1==1093334);
-          bool PID2isHSCP = (PID2==1000993||PID2==1009213||PID2==1009313||PID2==1009323||PID2==1009113||PID2==1009223||PID2==1009333||PID2==1091114||PID2==1092114||PID2==1092214||PID2==1092224||PID2==1093114||PID2==1093214||PID2==1093224||PID2==1093314||PID2==1093324||PID2==1093334);
-          bool PID3isHSCP = (PID3==1000993||PID3==1009213||PID3==1009313||PID3==1009323||PID3==1009113||PID3==1009223||PID3==1009333||PID3==1091114||PID3==1092114||PID3==1092214||PID3==1092224||PID3==1093114||PID3==1093214||PID3==1093224||PID3==1093314||PID3==1093324||PID3==1093334);
-          bool PID4isHSCP = (PID4==1000993||PID4==1009213||PID4==1009313||PID4==1009323||PID4==1009113||PID4==1009223||PID4==1009333||PID4==1091114||PID4==1092114||PID4==1092214||PID4==1092224||PID4==1093114||PID4==1093214||PID4==1093224||PID4==1093314||PID4==1093324||PID4==1093334);
-          bool PID5isHSCP = (PID5==1000993||PID5==1009213||PID5==1009313||PID5==1009323||PID5==1009113||PID5==1009223||PID5==1009333||PID5==1091114||PID5==1092114||PID5==1092214||PID5==1092224||PID5==1093114||PID5==1093214||PID5==1093224||PID5==1093314||PID5==1093324||PID5==1093334);
-          bool PID6isHSCP = (PID6==1000993||PID6==1009213||PID6==1009313||PID6==1009323||PID6==1009113||PID6==1009223||PID6==1009333||PID6==1091114||PID6==1092114||PID6==1092214||PID6==1092224||PID6==1093114||PID6==1093214||PID6==1093224||PID6==1093314||PID6==1093324||PID6==1093334);
-          bool PID7isHSCP = (PID7==1000993||PID7==1009213||PID7==1009313||PID7==1009323||PID7==1009113||PID7==1009223||PID7==1009333||PID7==1091114||PID7==1092114||PID7==1092214||PID7==1092224||PID7==1093114||PID7==1093214||PID7==1093224||PID7==1093314||PID7==1093324||PID7==1093334);
-          bool PID8isHSCP = (PID8==1000993||PID8==1009213||PID8==1009313||PID8==1009323||PID8==1009113||PID8==1009223||PID8==1009333||PID8==1091114||PID8==1092114||PID8==1092214||PID8==1092224||PID8==1093114||PID8==1093214||PID8==1093224||PID8==1093314||PID8==1093324||PID8==1093334);
-          bool PID9isHSCP = (PID9==1000993||PID9==1009213||PID9==1009313||PID9==1009323||PID9==1009113||PID9==1009223||PID9==1009333||PID9==1091114||PID9==1092114||PID9==1092214||PID9==1092224||PID9==1093114||PID9==1093214||PID9==1093224||PID9==1093314||PID9==1093324||PID9==1093334);
+          bool PID0isHSCP = (PID0==17||PID0==1000993||PID0==1009213||PID0==1009313||PID0==1009323||PID0==1009113||PID0==1009223||PID0==1009333||PID0==1091114||PID0==1092114||PID0==1092214||PID0==1092224||PID0==1093114||PID0==1093214||PID0==1093224||PID0==1093314||PID0==1093324||PID0==1093334);
+          bool PID1isHSCP = (PID1==17||PID1==1000993||PID1==1009213||PID1==1009313||PID1==1009323||PID1==1009113||PID1==1009223||PID1==1009333||PID1==1091114||PID1==1092114||PID1==1092214||PID1==1092224||PID1==1093114||PID1==1093214||PID1==1093224||PID1==1093314||PID1==1093324||PID1==1093334);
+          bool PID2isHSCP = (PID2==17||PID2==1000993||PID2==1009213||PID2==1009313||PID2==1009323||PID2==1009113||PID2==1009223||PID2==1009333||PID2==1091114||PID2==1092114||PID2==1092214||PID2==1092224||PID2==1093114||PID2==1093214||PID2==1093224||PID2==1093314||PID2==1093324||PID2==1093334);
+          bool PID3isHSCP = (PID3==17||PID3==1000993||PID3==1009213||PID3==1009313||PID3==1009323||PID3==1009113||PID3==1009223||PID3==1009333||PID3==1091114||PID3==1092114||PID3==1092214||PID3==1092224||PID3==1093114||PID3==1093214||PID3==1093224||PID3==1093314||PID3==1093324||PID3==1093334);
+          bool PID4isHSCP = (PID4==17||PID4==1000993||PID4==1009213||PID4==1009313||PID4==1009323||PID4==1009113||PID4==1009223||PID4==1009333||PID4==1091114||PID4==1092114||PID4==1092214||PID4==1092224||PID4==1093114||PID4==1093214||PID4==1093224||PID4==1093314||PID4==1093324||PID4==1093334);
+          bool PID5isHSCP = (PID5==17||PID5==1000993||PID5==1009213||PID5==1009313||PID5==1009323||PID5==1009113||PID5==1009223||PID5==1009333||PID5==1091114||PID5==1092114||PID5==1092214||PID5==1092224||PID5==1093114||PID5==1093214||PID5==1093224||PID5==1093314||PID5==1093324||PID5==1093334);
+          bool PID6isHSCP = (PID6==17||PID6==1000993||PID6==1009213||PID6==1009313||PID6==1009323||PID6==1009113||PID6==1009223||PID6==1009333||PID6==1091114||PID6==1092114||PID6==1092214||PID6==1092224||PID6==1093114||PID6==1093214||PID6==1093224||PID6==1093314||PID6==1093324||PID6==1093334);
+          bool PID7isHSCP = (PID7==17||PID7==1000993||PID7==1009213||PID7==1009313||PID7==1009323||PID7==1009113||PID7==1009223||PID7==1009333||PID7==1091114||PID7==1092114||PID7==1092214||PID7==1092224||PID7==1093114||PID7==1093214||PID7==1093224||PID7==1093314||PID7==1093324||PID7==1093334);
+          bool PID8isHSCP = (PID8==17||PID8==1000993||PID8==1009213||PID8==1009313||PID8==1009323||PID8==1009113||PID8==1009223||PID8==1009333||PID8==1091114||PID8==1092114||PID8==1092214||PID8==1092224||PID8==1093114||PID8==1093214||PID8==1093224||PID8==1093314||PID8==1093324||PID8==1093334);
+          bool PID9isHSCP = (PID9==17||PID9==1000993||PID9==1009213||PID9==1009313||PID9==1009323||PID9==1009113||PID9==1009223||PID9==1009333||PID9==1091114||PID9==1092114||PID9==1092214||PID9==1092224||PID9==1093114||PID9==1093214||PID9==1093224||PID9==1093314||PID9==1093324||PID9==1093334);
 #if HSCPONLY == 1
           if (!(PID0isHSCP|| PID1isHSCP || PID2isHSCP || PID3isHSCP || PID4isHSCP || PID5isHSCP || PID6isHSCP || PID7isHSCP || PID8isHSCP || PID9isHSCP)
               ) continue;
@@ -800,7 +814,7 @@ main(int argc, char **argv) {
           } // end if there is no error from the template analysis 1D
 #ifdef TwoDTempAna
           // 2D template analysis
-          SiPixelTemplateReco2D::ClusMatrix clusterPayload2d{&cluster[0][0], xdouble, ydouble, mrow,mcol}; // was with &cluster2d[0][0]
+          SiPixelTemplateReco2D::ClusMatrix clusterPayload2d{&cluster2d[0][0], xdouble, ydouble, mrow,mcol};
           int npixels;
           ierr = PixelTempReco2D(ID, cotalpha, cotbeta, locBz, locBx, edgeflagy, edgeflagx, clusterPayload2d, templ2D, yrec2D, sigmay2D, xrec2D, sigmax2D, probXY2D, probQ2D, qbin2D, deltay,npixels); 
           if(ierr != 0) {
@@ -882,6 +896,7 @@ main(int argc, char **argv) {
         if (debug>0) cout << "   probQonTrack " << probQonTrack << endl;
         if (debug>3) if (probQonTrack>0.98) cout << "probQonTrack is more then 0.98 in event " << event << endl;;
         hp[23]->Fill(probQonTrack);
+        
 #ifdef TwoDTempAna
         if (debug>2) cout << "nprobQOnTrack2D: " << nprobQOnTrack2D << endl;
         if (debug>1) cout << "probQonTrackWMulti2D outside the cluster loop is " << probQonTrackWMulti2D <<endl;
@@ -920,20 +935,42 @@ main(int argc, char **argv) {
   
 //  Create an output filename for this run 
 #if HSCPONLY == 0
-   sprintf(outfile0,"NormalTracks.pdf[");
-   sprintf(outfile1,"NormalTracks.pdf");
-   sprintf(outfile2,"NormalTracks.pdf]");
+   sprintf(outfile0,"0NormalTracks.pdf[");
+   sprintf(outfile1,"0NormalTracks.pdf");
+   sprintf(outfile2,"0NormalTracks.pdf]");
 #elif HSCPONLY == 1
-   sprintf(outfile0,"SignalOnly.pdf[");
-   sprintf(outfile1,"SignalOnly.pdf");
-   sprintf(outfile2,"SignalOnly.pdf]");
+   sprintf(outfile0,"0SignalOnly.pdf[");
+   sprintf(outfile1,"0SignalOnly.pdf");
+   sprintf(outfile2,"0SignalOnly.pdf]");
+#elif HSCPONLY == 2
+   sprintf(outfile0,"0Both.pdf[");
+   sprintf(outfile1,"0Both.pdf");
+   sprintf(outfile2,"0Both.pdf]");
 #endif
    TCanvas c1("c1", header);
    c1.SetFillStyle(4000);
    c1.Print(outfile0);
+   string dir ="mkdir /eos/user/t/tvami/www/projects/HSCP/"+currentDate();
+   system(dir.c_str());
    for(i=0; i<58; ++i) {
-     hp[i]->Draw();
-     c1.Print(outfile1);
+#if HSCPONLY == 0
+     string name = "/eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/NormalTracks_hp"+to_string(i)+".png";
+#elif HSCPONLY == 1
+     string name = "/eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/SignalOnly_hp"+to_string(i)+".png";
+#elif HSCPONLY == 2
+     string name = "/eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/Both_hp"+to_string(i)+".png";
+#endif
+     if (i==23 || i == 27) {
+       c1.SetLogy(1);
+       hp[i]->Draw();
+       c1.Print(outfile1);
+       c1.SaveAs(name.c_str());
+     } else {
+       c1.SetLogy(0);
+       hp[i]->Draw();
+       c1.Print(outfile1);
+       c1.SaveAs(name.c_str());
+     }
    }
    c1.Print(outfile2);
   int limit = nentries/100;
@@ -949,4 +986,16 @@ main(int argc, char **argv) {
 
 int factorial(int n) {
   return (n == 1 || n == 0) ? 1 : factorial(n - 1) * n;
+}
+
+const std::string currentDate() {
+    time_t     now = time(0);
+    struct tm  tstruct;
+    char       buf[80];
+    tstruct = *localtime(&now);
+    // Visit http://en.cppreference.com/w/cpp/chrono/c/strftime
+    // for more information about date/time format
+    strftime(buf, sizeof(buf), "%Y-%m-%d", &tstruct);
+
+    return buf;
 }
