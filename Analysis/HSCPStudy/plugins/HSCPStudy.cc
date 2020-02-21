@@ -307,10 +307,8 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   std::vector< SiPixelTemplateStore > thePixelTemp_;
   SiPixelTemplate templ(thePixelTemp_);
   
-  templ.interpolate(TemplID1, 0.f, 0.f, 1.f, 1.f); // Q: interpolate to what exactly?
-  xpitch = templ.xsize();
-  cout << "xpitch" << xpitch << endl;
-  ypitch = templ.ysize();
+  xpitch = 100;
+  ypitch = 150;
   
   // Initialize 1D templates
   cout << " ---------  PixelCPETemplateReco: Loading templates from database (DB) --------- " << endl;
