@@ -67,17 +67,18 @@
 #include "RecoLocalTracker/SiPixelRecHits/src/PixelCPEBase.cc"
 #include "RecoLocalTracker/SiPixelRecHits/interface/PixelCPEBase.h"
 
-#include "CondFormats/SiPixelTransient/src/SiPixelTemplate.cc"
+// #include "CondFormats/SiPixelTransient/src/SiPixelTemplate.cc"
 // #include "RecoLocalTracker/SiPixelRecHits/src/SiPixelTemplate.cc"
 #include "RecoLocalTracker/SiPixelRecHits/src/SiPixelTemplateReco.cc"
 
-#include "CondFormats/SiPixelTransient/src/SiPixelTemplate2D.cc"
+// #include "CondFormats/SiPixelTransient/src/SiPixelTemplate2D.cc"
 // #include "RecoLocalTracker/SiPixelRecHits/src/SiPixelTemplate2D.cc"
 #include "RecoLocalTracker/SiPixelRecHits/src/SiPixelTemplateReco2D.cc"
 
 #include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "CalibTracker/Records/interface/SiPixelTemplateDBObjectESProducerRcd.h"
+#include "CalibTracker/Records/interface/SiPixel2DTemplateDBObjectESProducerRcd.h"
 
 #define PVMAX 100 
 #define MUMAX 100 
@@ -114,6 +115,8 @@ class HSCPStudy : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       virtual void beginJob() override;
       virtual void analyze(const edm::Event&, const edm::EventSetup&) override;
       virtual void endJob() override;
+      int             verbosity; 
+      std::string     fileName; 
 };
 
 //
@@ -127,10 +130,10 @@ class HSCPStudy : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
 //
 // constructors and destructor
 //
-HSCPStudy::HSCPStudy(const edm::ParameterSet& iConfig)
+HSCPStudy::HSCPStudy(const edm::ParameterSet& iConfig):
+   verbosity(iConfig.getUntrackedParameter<int>("Verbosity", 0)),
+   fileName(iConfig.getUntrackedParameter<string>("rootFileName", string("pixelTree.root")))
 {
-   //now do what ever initialization is needed
-
 }
 
 
@@ -151,19 +154,15 @@ HSCPStudy::~HSCPStudy()
 void
 HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
-
-  cout << "Initialize HSCPAnalyzer " << endl;
 #if HSCPONLY == 1
   TFile hFile( "histo_signal.root", "RECREATE" );
 #else
   TFile hFile( "histo_normal.root", "RECREATE" );
 #endif
 
-  cout << "Opening input file " << endl;
+  cout << "Opening input file " << fileName << endl;
   TChain chain("pixelTree");
-  chain.Add("/afs/cern.ch/work/t/tvami/public/HSCP/HSCP/CMSSW_10_6_1_patch1/src/0RECOChain/HSCPSingalNoPU/4HSCP_Gluino_Mass800BasedpixelTreeWithSimInfo.root");
-
-  const int debug = 0;
+  chain.Add(fileName.c_str());
 
   int maxClus = 30000;
   int maxDigi = 150000;
@@ -176,15 +175,14 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   static float qscale, qscaleB, qscaleF, pcut, tkpcut, probQ, /*xs, ys,*/ probQonTrack, probQonTrackTerm;
   static float probQonTrackWMulti;
   static float xhit, yhit, xrec, yrec, sigmax, sigmay, probx, proby, cotalpha, cotbeta, locBx, locBz, xoff, yoff, xtemp, ytemp;  
-  static int /*sfile, nrun, external,*/ sizex, sizey, layer, llayer, module, ladder, offladder, /*side,*/ disk, /*blade, onblade,*/ panel, lowpt;
-  static int tladp1[4], qlad[4]={3, 7, 11, 16};
+  static int /*sfile, nrun, external,*/ sizex, sizey, layer, llayer, /*module, ladder, offladder, side,*/ disk, /*blade, onblade,*/ panel, lowpt;
+//   static int tladp1[4], qlad[4]={3, 7, 11, 16};
   static int lumiMin = 100000, lumiMax = 0;
   static vector<int> nbin(5,0);
   int i, j, ierr, qbin;
   bool bpix;
-  double log10probXY, log10probQ, log10probXYQ, logprobQonTrackWMulti, qclust, qnorm, proba, probXY, probXYQ, dx, dy, TkP, xhmod, yhmod;
+  double log10probXY, log10probQ, log10probXYQ, logprobQonTrackWMulti, qclust, qnorm, qnormcorr, proba, probXY, probXYQ, dx, dy, TkP, xhmod, yhmod;
   static int iy, ix, ngood, nbad, speed, /*IDF1,*/ ring;	
-  static int bptmp[4][8], fptmp[2][3][4], bpnew;
   static char /*infile[150],*/ header[80], /*outfile[150],*/ outfile0[80], outfile1[80], outfile2[80];
   float cluster[TXSIZE][TYSIZE], cluster2d[TXSIZE][TYSIZE];
   int mrow = TXSIZE, mcol = TYSIZE;    
@@ -207,8 +205,8 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   hp[0] = new TH1F("h201","number of vertices",60,-0.5,59.5);
   hp[1] = new TH1F("h202","vertex x",20,-1.,1.);      
   hp[2] = new TH1F("h203","vertex y",20,-1.,1.);      
-  hp[3] = new TH1F("h204","vertex z",80,-8.,8.);     
-  hp[4] = new TH1F("h205","",50,0.,10.);      
+  hp[3] = new TH1F("h204","Corrected normalized Cluster Charge (BPix)",nx,0.,120000.);
+  hp[4] = new TH1F("h205","Corrected normalized Cluster Charge (FPix)",nx,0.,120000.);
   hp[5] = new TH1F("h206","ProbXY",50,0.,1.);
   hp[6] = new TH1F("h207","ProbQ",50,0.,1.);
   hp[7] = new TH1F("h208","ProbXYQ",50,0.,1.);      
@@ -284,47 +282,48 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
   printf("probability cut = %f, momentum cut = %f, lowpt = %d, bpix scale factor = %f, fpix scale factor = %f \n", pcut, tkpcut, lowpt, qscaleB, qscaleF);
   
-    for(int lay=0; lay<4; ++lay) {
-      tladp1[lay] = 5*qlad[lay]+1;
-  }
+//     for(int lay=0; lay<4; ++lay) {
+//       tladp1[lay] = 5*qlad[lay]+1;
+//   }
   
-   bool newmodule[4][64][8];
-   for(int lay=0; lay<4; ++lay) {
-      for(int lad=0; lad<64; ++lad) {
-         for(int mod=0; mod<8; ++mod) {
-            newmodule[lay][lad][mod] = false;
-         }
-      }
-   }
+//    bool newmodule[4][64][8];
+//    for(int lay=0; lay<4; ++lay) {
+//       for(int lad=0; lad<64; ++lad) {
+//          for(int mod=0; mod<8; ++mod) {
+//             newmodule[lay][lad][mod] = false;
+//          }
+//       }
+//    }
    
-// Initialize template store
+// Initialize 1D templates
   const SiPixelTemplateDBObject* templateDBobject_;
   edm::ESHandle<SiPixelTemplateDBObject> templateDBobject;
   iSetup.get<SiPixelTemplateDBObjectESProducerRcd>().get(templateDBobject);
   templateDBobject_ = templateDBobject.product();
-
-
   std::vector< SiPixelTemplateStore > thePixelTemp_;
   SiPixelTemplate templ(thePixelTemp_);
   
-  xpitch = 100;
-  ypitch = 150;
-  
-  // Initialize 1D templates
-  cout << " ---------  PixelCPETemplateReco: Loading templates from database (DB) --------- " << endl;
-  cout << "templateDBobject version v" << (*templateDBobject_).version() << endl;
+  if (verbosity>2) cout << " ---------  PixelCPETemplateReco: Loading templates from database (DB) --------- " << endl;
 
-  // Initialize template store to the selected ID [Morris, 6/25/08]
   if (!SiPixelTemplate::pushfile(*templateDBobject_, thePixelTemp_))
-    throw cms::Exception("PixelCPETemplateReco")
-        << "\nERROR: Templates not filled correctly. Check the sqlite file. Using SiPixelTemplateDBObject version "
+      cout << "\nERROR: Templates not filled correctly. Check the sqlite file. Using SiPixelTemplateDBObject version "
         << (*templateDBobject_).version() << "\n\n";
           
-  // Initialize 2D templates
+// Initialize 2D templates
+  const SiPixel2DTemplateDBObject* templateDBobject2D_;
+  edm::ESHandle<SiPixel2DTemplateDBObject> templateDBobject2D;
+  iSetup.get<SiPixel2DTemplateDBObjectRcd>().get("numerator", templateDBobject2D);
+  templateDBobject2D_ = templateDBobject2D.product();
   std::vector< SiPixelTemplateStore2D > thePixelTemp2D_;
   SiPixelTemplate2D templ2D(thePixelTemp2D_);
+  
+  if (!SiPixelTemplate2D::pushfile( *templateDBobject2D_, thePixelTemp2D_))
+      cout << "\nERROR: 2D Templates not filled correctly. Check the sqlite file. Using SiPixel2DTemplateDBObject version "
+        << (*templateDBobject2D_).version() << "\n\n";
 
   // Other inits
+  xpitch = 100;
+  ypitch = 150;
   speed = -2;
   ngood = 0; nbad = 0;
     
@@ -373,13 +372,12 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     int ndigis = ana->DgN;
     int iTkN = ana->TkN;
     int iPvN = ana->PvN;
-    cout<< " ClN " << nclus << " TkN " << iTkN <<" DgN "<<ndigis<<" pvs "<<iPvN<<endl;
+    if (verbosity>1) cout<< " ClN " << nclus << " TkN " << iTkN <<" DgN "<<ndigis<<" pvs "<<iPvN<<endl;
 
     hp[0]->Fill(ana->PvN);  if(ana->PvN < 1) continue;  vector<bool> vtxok(iPvN,false);
     for(i = 0; i<iPvN; ++i) {
       hp[1]->Fill(ana->PvX[i]);
       hp[2]->Fill(ana->PvY[i]);
-      hp[3]->Fill(ana->PvZ[i]);
 
       if(ana->PvIsFake[i] == 1) continue;
       if(fabsf(ana->PvX[i]) > 0.3) continue;
@@ -393,7 +391,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
        
 // Loop over all tracks in the event
 //iTkN = 10;      
-    if (debug>2) cout << "----------- Loop over tracks -----------" <<endl;  
+    if (verbosity>2) cout << "----------- Loop over tracks -----------" <<endl;  
     for(int iTk = 0; iTk<iTkN; ++iTk) {
       
       // Require at least 3 pixel clusters on the track   
@@ -473,7 +471,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       // Loop over pixel clusters
       int nprobQOnTrack = 0;
       int nprobQOnTrack2D = 0;
-      if (debug>2) cout << "----------- Loop over clusters on track -----------" <<endl;  
+      if (verbosity>2) cout << "----------- Loop over clusters on track -----------" <<endl;  
       for(int iTkCl = 0; iTkCl < TkClN; ++iTkCl) {
         
         cotalpha = TMath::Tan(TMath::Pi()/2. - ana->TkAlpha[iTk][iTkCl]); 
@@ -520,30 +518,30 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         if(ana->ClDisk[iCl] < -10) {
           qscale = qscaleB;
           layer = ana->ClLayer[iCl];
-          module = ana->ClModule[iCl];
-          ladder = ana->ClLadder[iCl];
-          if(ladder < 0) {
-            offladder = qlad[layer-1] + abs(ladder);
-          } else {
-            int qladp1 = qlad[layer-1] + 1;
-            if(ladder < qladp1) {
-              offladder = qladp1 - ladder;
-            } else {
-              offladder = tladp1[layer-1] - ladder;
-            }
+//           module = ana->ClModule[iCl];
+//           ladder = ana->ClLadder[iCl];
+//           if(ladder < 0) {
+//             offladder = qlad[layer-1] + abs(ladder);
+//           } else {
+//             int qladp1 = qlad[layer-1] + 1;
+//             if(ladder < qladp1) {
+//               offladder = qladp1 - ladder;
+//             } else {
+//               offladder = tladp1[layer-1] - ladder;
+//             }
           }
 
  //       printf("layer/module/ladder/offladder = %d/%d/%d/%d \n", layer, module, ladder, offladder);
-          if(module < 0) {ring = module+4;} else {ring = module+3;}
+//           if(module < 0) {ring = module+4;} else {ring = module+3;}
 //           ID = bptmp[layer-1][ring];
 //        printf("layer/module/ring/ladder/ID = %d/%d/%d/%d/%d \n", layer, module, ring, ladder, ID);
-          llayer = layer;
-          if(newmodule[layer-1][offladder-1][ring]){
-//             ID = bpnew;
-            llayer = layer+4;
-          }
+//           llayer = layer;
+//           if(newmodule[layer-1][offladder-1][ring]){
+// //             ID = bpnew;
+//             llayer = layer+4;
+//           }
 
-       } else {
+        else {
                   bpix = false;
                   qscale = qscaleF;
 //                  printf("disk/ring/panel/blade = %d/%d/%d/%d \n", fClDisk[iCl], fClRing[iCl], fClPanel[iCl], fClBlade[iCl]);
@@ -698,21 +696,11 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
           locBz = locBx;
           if(cotalpha < 0.) locBz = -locBx;
           
-            int TemplID1 = -9999;
-            int TemplID2 = -9999;
-          
-            TemplID1 = templateDBobject_->getTemplateID(ana->ClDetId[iCl]);
-//             TemplID2 = theDetParam.detTemplateId2D;
-//               TemplID1 = templateDBobject_->getTemplateID(p.theDet->geographicalId());
-            //   templ.interpolate(ID, theClusterParam.cotalpha, theClusterParam.cotbeta, theDetParam.bz, theDetParam.bx)
+          int TemplID1 = -9999;
+          TemplID1 = templateDBobject_->getTemplateID(ana->ClDetId[iCl]);
+          templ.interpolate(TemplID1, 0.f, 0.f, 1.f, 1.f);
 
-
-
-//             templ2D.interpolate(TemplID2, 0.f, 0.f, 1.f, 1.f); // Q: interpolate to what exactly?
-//             xpitch = templ2D.xsize();
-//             ypitch = templ2D.ysize();
-          
-          // qbin 0-4 bins in charge, speed 
+          // Running the actualy 1D Template Reco
           ierr = PixelTempReco1D(TemplID1,
                                  cotalpha, 
                                  cotbeta, 
@@ -733,7 +721,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             ++nbad;
             if(nbad < 50) {printf("ID %d reco of cotalpha/cotbeta = %f/%f failed with error %d \n", TemplID1, cotalpha, cotbeta, ierr);}
           } else {
-//             if (debug>2) cout << "----------- 1D template analysis on a cluster -----------" <<endl;  
+            if (verbosity>2) cout << "----------- 1D template analysis on a cluster -----------" <<endl;  
             xtemp = xoff + xrec;
             ytemp = yoff + yrec;
             dx = xtemp - xhit;
@@ -741,7 +729,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             
             // Check resolution and weights 
 //        if(qbin > 3) {printf(" qbin = %d \n", qbin);}
-            if (debug>2) cout << "probQ in cluster " << iTkCl <<  " on Layer-"  <<  ana->ClLayer[iTkCl] << " or on Disk-" << ana->ClDisk[iTkCl] << " is " << probQ <<endl;
+            if (verbosity>2) cout << "probQ in cluster " << iTkCl <<  " on Layer-"  <<  ana->ClLayer[iTkCl] << " or on Disk-" << ana->ClDisk[iTkCl] << " is " << probQ <<endl;
             proba = probx*proby;
             probXY = proba*(1.-log(proba));
             proba = probx*proby*probQ;
@@ -758,6 +746,8 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             if(probQ > 0.01) hp[11]->Fill(log10probXY);
             qnorm = qclust/sqrt((double)(1.+cotbeta*cotbeta+cotalpha*cotalpha)); 
             if(bpix) {hp[12]->Fill(qnorm);} else {hp[13]->Fill(qnorm);};
+            qnormcorr = (qnorm*templ.qscale())/templ.r_qMeas_qTrue();
+            if(bpix) {hp[3]->Fill(qnormcorr);} else {hp[4]->Fill(qnormcorr);};
             if(probXY > 0.01) {hp[14]->Fill(qclust);}
             if(probQ > 0.01) {hp[15]->Fill(qclust);}
             if(probXYQ > 0.01) {hp[16]->Fill(qclust);}
@@ -783,17 +773,35 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
           } // end if there is no error from the template analysis 1D
 #ifdef TwoDTempAna
           // 2D template analysis
+          int TemplID2 = -9999;
+          TemplID2 = templateDBobject2D_->getTemplateID(ana->ClDetId[iCl]);
+          templ2D.interpolate(TemplID2, 0.f, 0.f, 1.f, 1.f); // Q: interpolate to what exactly?
+
           SiPixelTemplateReco2D::ClusMatrix clusterPayload2d{&cluster2d[0][0], xdouble, ydouble, mrow,mcol};
           int npixels;
-//           ierr = PixelTempReco2D(TemplID2, 
-//                                  cotalpha, cotbeta, locBz, locBx, edgeflagy, edgeflagx, clusterPayload2d, 
-//                                  templ2D, yrec2D, sigmay2D, xrec2D, sigmax2D, 
-//                                  probXY2D, probQ2D, qbin2D, deltay,npixels); 
+          ierr = PixelTempReco2D(TemplID2, 
+                                 cotalpha, 
+                                 cotbeta, 
+                                 locBz, 
+                                 locBx, 
+                                 edgeflagy, 
+                                 edgeflagx, 
+                                 clusterPayload2d, 
+                                 templ2D, 
+                                 yrec2D, 
+                                 sigmay2D, 
+                                 xrec2D, 
+                                 sigmax2D, 
+                                 probXY2D, 
+                                 probQ2D, 
+                                 qbin2D, 
+                                 deltay,
+                                 npixels); 
           if(ierr != 0) {
             ++nbad;
-            if(nbad < 50) {printf("ID %d reco of cotalpha/cotbeta = %f/%f failed with error %d \n", TemplID2, cotalpha, cotbeta, ierr);}
+            if(nbad < 50) {printf("2D Template ID %d reco of cotalpha/cotbeta = %f/%f failed with error %d \n", TemplID2, cotalpha, cotbeta, ierr);}
           } else {
-//             if (debug>2) cout << "----------- 2D template analysis on a cluster -----------" <<endl;
+            if (verbosity>2) cout << "----------- 2D template analysis on a cluster -----------" <<endl;
             xtemp = xoff + xrec2D;
             ytemp = yoff + yrec2D;
             dx = xrec2D - xhit;
@@ -801,7 +809,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
             // Check resolution and weights 
 //          if(qbin > 3) {printf(" qbin = %d \n", qbin);}
-            if (debug>2) cout << "probQ2D in cluster " << iTkCl << " on Layer-"  <<  ana->ClLayer[iTkCl] << " or on Disk-" << ana->ClDisk[iTkCl] << " is " << probQ2D <<endl;
+            if (verbosity>2) cout << "probQ2D in cluster " << iTkCl << " on Layer-"  <<  ana->ClLayer[iTkCl] << " or on Disk-" << ana->ClDisk[iTkCl] << " is " << probQ2D <<endl;
             proba = probXY2D*probQ2D;
             probXYQ2D = proba*(1.-log(proba)+0.5*log(proba)*log(proba));
 //             log10probQ2D = log10((double)probQ2D);
@@ -820,17 +828,17 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
           } // end if there is no error from the template analysis 2D
 #endif
         } // end of loop over pixel clusters
-        if (debug>2) cout << "----------- ON TRACK INFO -----------" <<endl;  
+        if (verbosity>2) cout << "----------- ON TRACK INFO -----------" <<endl;  
         if(nprobQOnTrack!=TkClN) {
-            if (debug>2) cout << "Error: nprobQOnTrack!=TkClN" << endl;
+            if (verbosity>2) cout << "Error: nprobQOnTrack!=TkClN" << endl;
             continue;
         }
         if(nprobQOnTrack < 2) {
-            if (debug>2) cout << "Error: nprobQOnTrack==TkClN but nprobQOnTrack < 2" << endl;
+            if (verbosity>2) cout << "Error: nprobQOnTrack==TkClN but nprobQOnTrack < 2" << endl;
             continue;
         }
-	if (debug>2) cout << "nprobQOnTrack: " << nprobQOnTrack << endl;
-        if (debug>1) cout << "probQonTrackWMulti outside the cluster loop is " << probQonTrackWMulti <<endl;
+	if (verbosity>2) cout << "nprobQOnTrack: " << nprobQOnTrack << endl;
+        if (verbosity>1) cout << "probQonTrackWMulti outside the cluster loop is " << probQonTrackWMulti <<endl;
         hp[21]->Fill(probQonTrackWMulti);
         logprobQonTrackWMulti = log(probQonTrackWMulti);
         if(probQ > 0.00001) hp[22]->Fill(logprobQonTrackWMulti);
@@ -838,17 +846,17 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         for(int iTkCl = 0; iTkCl < nprobQOnTrack; ++iTkCl) {
             probQonTrackTerm += ((pow(-logprobQonTrackWMulti,iTkCl))/(factorial(iTkCl)));
 //             cout << "For cluster " << iTkCl << " pow(-logprobQonTrackWMulti,iTkCl) is " << pow(-logprobQonTrackWMulti,iTkCl) << endl;
-            if (debug>1) cout << "For cluster " << iTkCl << " the probQonTrackTerm is " << probQonTrackTerm << endl;
+            if (verbosity>1) cout << "For cluster " << iTkCl << " the probQonTrackTerm is " << probQonTrackTerm << endl;
         }
           
         probQonTrack = probQonTrackWMulti*probQonTrackTerm;
-        if (debug>0) cout << "   probQonTrack " << probQonTrack << endl;
-        if (debug>3) if (probQonTrack>0.98) cout << "probQonTrack is more then 0.98 in event " << event << endl;;
+        if (verbosity>0) cout << "   probQonTrack " << probQonTrack << endl;
+        if (verbosity>3) if (probQonTrack>0.98) cout << "probQonTrack is more then 0.98 in event " << event << endl;;
         hp[23]->Fill(probQonTrack);
         
 #ifdef TwoDTempAna
-        if (debug>2) cout << "nprobQOnTrack2D: " << nprobQOnTrack2D << endl;
-        if (debug>1) cout << "probQonTrackWMulti2D outside the cluster loop is " << probQonTrackWMulti2D <<endl;
+        if (verbosity>2) cout << "nprobQOnTrack2D: " << nprobQOnTrack2D << endl;
+        if (verbosity>1) cout << "probQonTrackWMulti2D outside the cluster loop is " << probQonTrackWMulti2D <<endl;
         hp[25]->Fill(probQonTrackWMulti2D);
         logprobQonTrackWMulti2D = log(probQonTrackWMulti2D);
         if(probQ2D > 0.00001) hp[26]->Fill(logprobQonTrackWMulti2D);
@@ -856,12 +864,12 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         for(int iTkCl = 0; iTkCl < nprobQOnTrack2D; ++iTkCl) {
             probQonTrackTerm2D += ((pow(-logprobQonTrackWMulti2D,iTkCl))/(factorial(iTkCl)));
 //             cout << "For cluster " << iTkCl << " pow(-logprobQonTrackWMulti2D,iTkCl) is " << pow(-logprobQonTrackWMulti2D,iTkCl) << endl;
-            if (debug>1) cout << "For cluster " << iTkCl  << " the probQonTrackTerm2D is " << probQonTrackTerm2D << endl;
+            if (verbosity>1) cout << "For cluster " << iTkCl  << " the probQonTrackTerm2D is " << probQonTrackTerm2D << endl;
         }
           
         probQonTrack2D = probQonTrackWMulti2D*probQonTrackTerm2D;
-        if (debug>0) cout << "   probQonTrack2D " << probQonTrack2D << endl;
-        if (debug>3) if (probQonTrack2D>0.98) cout << "probQonTrack2D is more then 0.98 in event " << event << endl;;
+        if (verbosity>0) cout << "   probQonTrack2D " << probQonTrack2D << endl;
+        if (verbosity>3) if (probQonTrack2D>0.98) cout << "probQonTrack2D is more then 0.98 in event " << event << endl;;
         hp[27]->Fill(probQonTrack2D);
 #endif
       } // end of loop over tracks
@@ -876,13 +884,19 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   cout << " FPix: min/max abs(cot(beta)) = " << cotabminf << "/" << cotabmaxf << endl;
        
 /*
- * Histograms plotting
+ * Histograms fitting
  */
 //   for(i=0; i<5; ++i) {hp[i]->Fit("gaus"); hp[i+10]->Fit("gaus");}
 //    for(i=42; i<58; ++i) {hp[i]->Fit("gaus");} // this was the final on Oct 24, 2019
 
   
 //  Create an output filename for this run 
+
+   hFile.Write();
+  //gDirectory->pwd();
+//    hFile.ls();
+   hFile.Close();
+   
 #if HSCPONLY == 0
    sprintf(outfile0,"0NormalTracks.pdf[");
    sprintf(outfile1,"0NormalTracks.pdf");
@@ -925,10 +939,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 //   int limit = nentries/100;
 
   
-   hFile.Write();
-  //gDirectory->pwd();
-  //hFile.ls();
-   hFile.Close();
+
 
 }
 
