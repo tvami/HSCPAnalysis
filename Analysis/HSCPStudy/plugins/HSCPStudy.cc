@@ -890,13 +890,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 //    for(i=42; i<58; ++i) {hp[i]->Fit("gaus");} // this was the final on Oct 24, 2019
 
   
-//  Create an output filename for this run 
-
-   hFile.Write();
-  //gDirectory->pwd();
-//    hFile.ls();
-   hFile.Close();
-   
+//  Create an output filename for this run    
 #if HSCPONLY == 0
    sprintf(outfile0,"0NormalTracks.pdf[");
    sprintf(outfile1,"0NormalTracks.pdf");
@@ -938,7 +932,10 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    c1.Print(outfile2);
 //   int limit = nentries/100;
 
-  
+   hFile.Write();
+  //gDirectory->pwd();
+//    hFile.ls();
+   hFile.Close();
 
 
 }
@@ -965,7 +962,6 @@ HSCPStudy::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   desc.setUnknown();
   descriptions.addDefault(desc);
 
-  //Specify that only 'tracks' is allowed
   //To use, remove the default given above and uncomment below
   //ParameterSetDescription desc;
   //desc.addUntracked<edm::InputTag>("tracks","ctfWithMaterialTracks");
