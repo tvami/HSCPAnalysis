@@ -1,4 +1,4 @@
-// -*- C++ -*-
+ // -*- C++ -*-
 //
 // Package:    Analysis/HSCPStudy
 // Class:      HSCPStudy
@@ -36,8 +36,14 @@
 #include <cstdlib>
 
 #include "TROOT.h"
+#include "Math/Vavilov.h"
+#include "Math/VavilovAccurate.h"
+#include "Math/SpecFuncMathCore.h"
+#include "Math/SpecFuncMathMore.h"
+
 #include "TStyle.h"
 #include "TH1.h"
+#include "TF1.h"
 #include "TH2.h" 
 #include "TProfile.h" 
 #include "TVector3.h"
@@ -49,10 +55,13 @@
 #include "TPostScript.h"
 
 // user include files
+#include "CommonTools/UtilAlgos/interface/TFileService.h"
+#include "FWCore/ServiceRegistry/interface/Service.h"
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/one/EDAnalyzer.h"
 
 #include "FWCore/Framework/interface/Event.h"
+#include <FWCore/Framework/interface/EventSetup.h>
 #include "FWCore/Framework/interface/MakerMacros.h"
 
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
@@ -75,7 +84,6 @@
 // #include "RecoLocalTracker/SiPixelRecHits/src/SiPixelTemplate2D.cc"
 #include "RecoLocalTracker/SiPixelRecHits/src/SiPixelTemplateReco2D.cc"
 
-#include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "CalibTracker/Records/interface/SiPixelTemplateDBObjectESProducerRcd.h"
 #include "CalibTracker/Records/interface/SiPixel2DTemplateDBObjectESProducerRcd.h"
@@ -89,7 +97,7 @@
 #define TKPERCLMAX 100  
 #define DIGIMAX 200000
 // 0 -- Normal tracks, 1 -- HSCP only
-#define HSCPONLY 1 
+#define HSCPONLY 0
 #define TwoDTempAna
 //
 // class declaration
@@ -102,6 +110,8 @@
 
 using namespace std;
 using namespace edm;
+using namespace ROOT;
+using namespace Math;
 
 class HSCPStudy : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
    public:
@@ -154,11 +164,6 @@ HSCPStudy::~HSCPStudy()
 void
 HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
-#if HSCPONLY == 1
-  TFile hFile( "histo_signal.root", "RECREATE" );
-#else
-  TFile hFile( "histo_normal.root", "RECREATE" );
-#endif
 
   cout << "Opening input file " << fileName << endl;
   TChain chain("pixelTree");
@@ -200,72 +205,86 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   int nx=120;  
   gStyle->SetOptFit(101);
   gStyle->SetHistLineWidth(2);
-  static vector<TH1F*> hp(58);
+  static vector<TH1F*> hp(72);
+  edm::Service<TFileService> fs;
      
-  hp[0] = new TH1F("h201","number of vertices",60,-0.5,59.5);
-  hp[1] = new TH1F("h202","vertex x",20,-1.,1.);      
-  hp[2] = new TH1F("h203","vertex y",20,-1.,1.);      
-  hp[3] = new TH1F("h204","Corrected normalized Cluster Charge (BPix)",nx,0.,120000.);
-  hp[4] = new TH1F("h205","Corrected normalized Cluster Charge (FPix)",nx,0.,120000.);
-  hp[5] = new TH1F("h206","ProbXY",50,0.,1.);
-  hp[6] = new TH1F("h207","ProbQ",50,0.,1.);
-  hp[7] = new TH1F("h208","ProbXYQ",50,0.,1.);      
-  hp[8] = new TH1F("h209","log10(ProbXY)",nx,-12.,0.);      
-  hp[9] = new TH1F("h210","log10(ProbQ)",nx,-12.,0.);     
-  hp[10] = new TH1F("h211","log10(ProbXYQ)",nx,-12.,0.);      
-  hp[11] = new TH1F("h212","log10(ProbXY) (ProbQ>0.01)",nx,-12.,0.);      
-  hp[12] = new TH1F("h701","Normalized Cluster Charge (BPix)",nx,0.,120000.);
-  hp[13] = new TH1F("h702","Normalized Cluster Charge (FPix)",nx,0.,120000.);
-  hp[14] = new TH1F("h703","Cluster Charge (ProbXY > 0.01)",nx,0.,200000.);      
-  hp[15] = new TH1F("h704","Cluster Charge (ProbQ>0.01)",nx,0.,200000.);
-  hp[16] = new TH1F("h705","Cluster Charge (ProbXYQ>0.01)",nx,0.,200000.);
-  hp[17] = new TH1F("h106","dx_temp (bpix); #Deltax (#mum)",nx,-50.,50.);
-  hp[18] = new TH1F("h117","dy_temp (bpix); #Deltay (#mum)",nx,-50.,50.);
-  hp[19] = new TH1F("h118","Track pT; pT (GeV)",nx,0.,12.);
-  hp[20] = new TH1F("h119","Track momentum; p (GeV)",nx,0.,12.);
-  hp[21] = new TH1F("h120","ProbQ on tracks (w/ multiplication)",100,0.,1.);
-  hp[22] = new TH1F("h121","log(probQ) on tracks (w/ multiplication)",nx,-12.,0.);  
-  hp[23] = new TH1F("h122","ProbQ on tracks (w/ combine)",100,0.,1.);
-  hp[24] = new TH1F("h123","ProbQ2D",50,0.,1.);
-  hp[25] = new TH1F("h124","ProbQ2D on tracks (w/ multiplication)",100,0.,1.);
-  hp[26] = new TH1F("h125","log(probQ2D) on tracks (w/ multiplication)",nx,-12.,0.);  
-  hp[27] = new TH1F("h126","ProbQ2D on tracks (w/ combine)",100,0.,1.);
-  hp[28] = new TH1F("h127","probXY2D",50,0.,1.);
-  hp[29] = new TH1F("h213","ProbXYQ2D",50,0.,1.);      
+  hp[0] = fs->make<TH1F>("h201","number of vertices",60,-0.5,59.5);
+  hp[1] = fs->make<TH1F>("h202","vertex x",20,-1.,1.);      
+  hp[2] = fs->make<TH1F>("h203","vertex y",20,-1.,1.);      
+  hp[3] = fs->make<TH1F>("h204","Corrected normalized Cluster Charge (BPix)",nx,0.,120000.);
+  hp[4] = fs->make<TH1F>("h205","Corrected normalized Cluster Charge (FPix)",nx,0.,120000.);
+  hp[5] = fs->make<TH1F>("h206","ProbXY",50,0.,1.);
+  hp[6] = fs->make<TH1F>("h207","ProbQ",50,0.,1.);
+  hp[7] = fs->make<TH1F>("h208","ProbXYQ",50,0.,1.);      
+  hp[8] = fs->make<TH1F>("h209","log10(ProbXY)",nx,-12.,0.);      
+  hp[9] = fs->make<TH1F>("h210","log10(ProbQ)",nx,-12.,0.);     
+  hp[10] = fs->make<TH1F>("h211","log10(ProbXYQ)",nx,-12.,0.);      
+  hp[11] = fs->make<TH1F>("h212","log10(ProbXY) (ProbQ>0.01)",nx,-12.,0.);      
+  hp[12] = fs->make<TH1F>("h701","Normalized Cluster Charge (BPix)",nx,0.,120000.);
+  hp[13] = fs->make<TH1F>("h702","Normalized Cluster Charge (FPix)",nx,0.,120000.);
+  hp[14] = fs->make<TH1F>("h703","Cluster Charge (ProbXY > 0.01)",nx,0.,200000.);      
+  hp[15] = fs->make<TH1F>("h704","Cluster Charge (ProbQ>0.01)",nx,0.,200000.);
+  hp[16] = fs->make<TH1F>("h705","Cluster Charge (ProbXYQ>0.01)",nx,0.,200000.);
+  hp[17] = fs->make<TH1F>("h106","dx_temp (bpix); #Deltax (#mum)",nx,-50.,50.);
+  hp[18] = fs->make<TH1F>("h117","dy_temp (bpix); #Deltay (#mum)",nx,-50.,50.);
+  hp[19] = fs->make<TH1F>("h118","Track pT; pT (GeV)",nx,0.,12.);
+  hp[20] = fs->make<TH1F>("h119","Track momentum; p (GeV)",nx,0.,12.);
+  hp[21] = fs->make<TH1F>("h120","ProbQ on tracks (w/ multiplication)",100,0.,1.);
+  hp[22] = fs->make<TH1F>("h121","log(probQ) on tracks (w/ multiplication)",nx,-12.,0.);  
+  hp[23] = fs->make<TH1F>("h122","ProbQ on tracks (w/ combine)",100,0.,1.);
+  hp[24] = fs->make<TH1F>("h123","ProbQ2D",50,0.,1.);
+  hp[25] = fs->make<TH1F>("h124","ProbQ2D on tracks (w/ multiplication)",100,0.,1.);
+  hp[26] = fs->make<TH1F>("h125","log(probQ2D) on tracks (w/ multiplication)",nx,-12.,0.);  
+  hp[27] = fs->make<TH1F>("h126","ProbQ2D on tracks (w/ combine)",100,0.,1.);
+  hp[28] = fs->make<TH1F>("h127","probXY2D",50,0.,1.);
+  hp[29] = fs->make<TH1F>("h213","ProbXYQ2D",50,0.,1.);      
   
-  hp[30] = new TH1F("h301","ProbQ on tracks (w/ multiplication)",50,0.,1.);
-  hp[31] = new TH1F("h302","log(probQ) on tracks (w/ multiplication)",nx,-12.,0.);     
-  hp[32] = new TH1F("h303","ProbQ on tracks (w/ combine)",50,0.,1.);
-  hp[33] = new TH1F("h304","Track Quality",17,-1.5,15.5);     
-  hp[34] = new TH1F("h218","After cuts: Track pT; pT (GeV)",150,0.,1500.);
-  hp[35] = new TH1F("h219","Number of tracks",200,-0.5,999.5);
+  hp[30] = fs->make<TH1F>("h301","ProbQ on tracks (w/ multiplication)",50,0.,1.);
+  hp[31] = fs->make<TH1F>("h302","log(probQ) on tracks (w/ multiplication)",nx,-12.,0.);     
+  hp[32] = fs->make<TH1F>("h303","ProbQ on tracks (w/ combine)",50,0.,1.);
+  hp[33] = fs->make<TH1F>("h304","Track Quality",17,-1.5,15.5);     
+  hp[34] = fs->make<TH1F>("h218","After cuts: Track pT; pT (GeV)",150,0.,1500.);
+  hp[35] = fs->make<TH1F>("h219","Number of tracks",200,-0.5,999.5);
   
-  hp[36] = new TH1F("h220","After cuts: BPix cotalpha; cot(#alpha)",100,-1.0,1.0);
-  hp[37] = new TH1F("h221","After cuts: BPix cotbeta; cot(#beta)",200,-10.,10.);
-  hp[38] = new TH1F("h222","After cuts: FPix cotalpha; cot(#alpha)",50,0.0,1.0);
-  hp[39] = new TH1F("h223","After cuts: FPix |cotbeta|; |cot(#beta)|",50,0.0,1.0);
+  hp[36] = fs->make<TH1F>("h220","After cuts: BPix cotalpha; cot(#alpha)",100,-1.0,1.0);
+  hp[37] = fs->make<TH1F>("h221","After cuts: BPix cotbeta; cot(#beta)",200,-10.,10.);
+  hp[38] = fs->make<TH1F>("h222","After cuts: FPix cotalpha; cot(#alpha)",50,0.0,1.0);
+  hp[39] = fs->make<TH1F>("h223","After cuts: FPix |cotbeta|; |cot(#beta)|",50,0.0,1.0);
   
-  hp[40] = new TH1F("h107","dx_temp (fpix); #Deltax (#mum)",nx,-100.,100.);
-  hp[41] = new TH1F("h138","dy_temp (fpix); #Deltay (#mum)",nx,-100.,100.);
-  hp[42] = new TH1F("h801","dx_temp (BP L1); #Deltax (#mum)",nx,-100.,100.);
-  hp[43] = new TH1F("h802","dy_temp (BP L1); #Deltay (#mum)",nx,-100.,100.);
-  hp[44] = new TH1F("h803","dx_temp (BP L2); #Deltax (#mum)",nx,-100.,100.);
-  hp[45] = new TH1F("h804","dy_temp (BP L2); #Deltay (#mum)",nx,-100.,100.);
-  hp[46] = new TH1F("h805","dx_temp (BP L3); #Deltax (#mum)",nx,-100.,100.);
-  hp[47] = new TH1F("h806","dy_temp (BP L3); #Deltay (#mum)",nx,-100.,100.);
-  hp[48] = new TH1F("h807","dx_temp (BP L4); #Deltax (#mum)",nx,-100.,100.);
-  hp[49] = new TH1F("h808","dy_temp (BP L4); #Deltay (#mum)",nx,-100.,100.);
-  hp[50] = new TH1F("h809","dx_temp (FP R2P1); #Deltax (#mum)",nx,-100.,100.);
-  hp[51] = new TH1F("h810","dy_temp (FP R2P1); #Deltay (#mum)",nx,-100.,100.);
-  hp[52] = new TH1F("h811","dx_temp (FP R1P1); #Deltax (#mum)",nx,-100.,100.);
-  hp[53] = new TH1F("h812","dy_temp (FP R1P1); #Deltay (#mum)",nx,-100.,100.);
-  hp[54] = new TH1F("h813","dx_temp (FP R1P2); #Deltax (#mum)",nx,-100.,100.);
-  hp[55] = new TH1F("h814","dy_temp (FP R1P2); #Deltay (#mum)",nx,-100.,100.);
-  hp[56] = new TH1F("h815","dx_temp (FP R2P2); #Deltax (#mum)",nx,-100.,100.);
-  hp[57] = new TH1F("h816","dy_temp (FP R2P2); #Deltay (#mum)",nx,-100.,100.);
-  
+  hp[40] = fs->make<TH1F>("h107","dx_temp (fpix); #Deltax (#mum)",nx,-100.,100.);
+  hp[41] = fs->make<TH1F>("h138","dy_temp (fpix); #Deltay (#mum)",nx,-100.,100.);
+  hp[42] = fs->make<TH1F>("h801","dx_temp (BP L1); #Deltax (#mum)",nx,-100.,100.);
+  hp[43] = fs->make<TH1F>("h802","dy_temp (BP L1); #Deltay (#mum)",nx,-100.,100.);
+  hp[44] = fs->make<TH1F>("h803","dx_temp (BP L2); #Deltax (#mum)",nx,-100.,100.);
+  hp[45] = fs->make<TH1F>("h804","dy_temp (BP L2); #Deltay (#mum)",nx,-100.,100.);
+  hp[46] = fs->make<TH1F>("h805","dx_temp (BP L3); #Deltax (#mum)",nx,-100.,100.);
+  hp[47] = fs->make<TH1F>("h806","dy_temp (BP L3); #Deltay (#mum)",nx,-100.,100.);
+  hp[48] = fs->make<TH1F>("h807","dx_temp (BP L4); #Deltax (#mum)",nx,-100.,100.);
+  hp[49] = fs->make<TH1F>("h808","dy_temp (BP L4); #Deltay (#mum)",nx,-100.,100.);
+  hp[50] = fs->make<TH1F>("h809","dx_temp (FP R2P1); #Deltax (#mum)",nx,-100.,100.);
+  hp[51] = fs->make<TH1F>("h810","dy_temp (FP R2P1); #Deltay (#mum)",nx,-100.,100.);
+  hp[52] = fs->make<TH1F>("h811","dx_temp (FP R1P1); #Deltax (#mum)",nx,-100.,100.);
+  hp[53] = fs->make<TH1F>("h812","dy_temp (FP R1P1); #Deltay (#mum)",nx,-100.,100.);
+  hp[54] = fs->make<TH1F>("h813","dx_temp (FP R1P2); #Deltax (#mum)",nx,-100.,100.);
+  hp[55] = fs->make<TH1F>("h814","dy_temp (FP R1P2); #Deltay (#mum)",nx,-100.,100.);
+  hp[56] = fs->make<TH1F>("h815","dx_temp (FP R2P2); #Deltax (#mum)",nx,-100.,100.);
+  hp[57] = fs->make<TH1F>("h816","dy_temp (FP R2P2); #Deltay (#mum)",nx,-100.,100.);
+  hp[58] = fs->make<TH1F>("h701_n","Normalized Cluster Charge (BPix)",nx,0.,120000.);
+  hp[59] = fs->make<TH1F>("h702_n","Normalized Cluster Charge (FPix)",nx,0.,120000.);
+  hp[60] = fs->make<TH1F>("h701_n1","Normalized Cluster Charge (BPix L1)",nx,0.,120000.);
+  hp[61] = fs->make<TH1F>("h701_n1c","Corr Normalized Cluster Charge (BPix L1)",nx,0.,120000.);
+  hp[62] = fs->make<TH1F>("h701_n2","Normalized Cluster Charge (BPix L2)",nx,0.,120000.);
+  hp[63] = fs->make<TH1F>("h701_n2c","Corr Normalized Cluster Charge (BPix L2)",nx,0.,120000.);
+  hp[64] = fs->make<TH1F>("h701_n3","Normalized Cluster Charge (BPix L3)",nx,0.,120000.);
+  hp[65] = fs->make<TH1F>("h701_n3c","Corr Normalized Cluster Charge (BPix L3)",nx,0.,120000.);
+  hp[66] = fs->make<TH1F>("h701_n4","Normalized Cluster Charge (BPix L4)",nx,0.,120000.);
+  hp[67] = fs->make<TH1F>("h701_n4c","Corr Normalized Cluster Charge (BPix L4)",nx,0.,120000.);
+  hp[68] = fs->make<TH1F>("h702_nr1","Normalized Cluster Charge (FPix R1)",nx,0.,120000.);
+  hp[69] = fs->make<TH1F>("h702_nr1_c","Corr Normalized Cluster Charge (FPix R1)",nx,0.,120000.);
+  hp[70] = fs->make<TH1F>("h702_nr12","Normalized Cluster Charge (FPix R2)",nx,0.,120000.);
+  hp[71] = fs->make<TH1F>("h702_nr12_c","Corr Normalized Cluster Charge (FPix R2)",nx,0.,120000.);
   // Set style for the the histograms  
-  for(i=0; i<58; ++i) {
+  for(i=0; i<72; ++i) {
     hp[i]->SetLineColor(2);
     hp[i]->SetFillColor(38);
      if (i==23 || i == 27) {
@@ -745,9 +764,32 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             hp[10]->Fill(log10probXYQ);
             if(probQ > 0.01) hp[11]->Fill(log10probXY);
             qnorm = qclust/sqrt((double)(1.+cotbeta*cotbeta+cotalpha*cotalpha)); 
-            if(bpix) {hp[12]->Fill(qnorm);} else {hp[13]->Fill(qnorm);};
+
+            if(bpix) {
+                hp[12]->Fill(qnorm);
+                if (layer==1) hp[60]->Fill(qnorm);
+                if (layer==2) hp[62]->Fill(qnorm);
+                if (layer==3) hp[64]->Fill(qnorm);
+                if (layer==4) hp[66]->Fill(qnorm);
+            } else {
+                hp[13]->Fill(qnorm);
+                if (ring==1) hp[68]->Fill(qnorm);
+                if (ring==2) hp[70]->Fill(qnorm);
+            };
             qnormcorr = (qnorm*templ.qscale())/templ.r_qMeas_qTrue();
-            if(bpix) {hp[3]->Fill(qnormcorr);} else {hp[4]->Fill(qnormcorr);};
+            if(bpix) {
+                hp[3]->Fill(qnormcorr);
+                if (layer==1) hp[61]->Fill(qnormcorr);
+                if (layer==2) hp[63]->Fill(qnormcorr);
+                if (layer==3) hp[65]->Fill(qnormcorr);
+                if (layer==4) hp[67]->Fill(qnormcorr);
+            } else {
+                hp[4]->Fill(qnormcorr);
+                if (ring==1) hp[69]->Fill(qnormcorr);
+                if (ring==2) hp[71]->Fill(qnormcorr);
+            };
+            
+            
             if(probXY > 0.01) {hp[14]->Fill(qclust);}
             if(probQ > 0.01) {hp[15]->Fill(qclust);}
             if(probXYQ > 0.01) {hp[16]->Fill(qclust);}
@@ -799,7 +841,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
                                  npixels); 
           if(ierr != 0) {
             ++nbad;
-            if(nbad < 50) {printf("2D Template ID %d reco of cotalpha/cotbeta = %f/%f failed with error %d \n", TemplID2, cotalpha, cotbeta, ierr);}
+            if(nbad < 50) {printf("2D Template reco with ID %d of cotalpha/cotbeta = %f/%f failed with error %d \n", TemplID2, cotalpha, cotbeta, ierr);}
           } else {
             if (verbosity>2) cout << "----------- 2D template analysis on a cluster -----------" <<endl;
             xtemp = xoff + xrec2D;
@@ -888,6 +930,56 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
  */
 //   for(i=0; i<5; ++i) {hp[i]->Fit("gaus"); hp[i+10]->Fit("gaus");}
 //    for(i=42; i<58; ++i) {hp[i]->Fit("gaus");} // this was the final on Oct 24, 2019
+// https://github.com/cms-sw/cmssw/blob/47c3d4c0989c1db4e371d8c888e1dbd66b0bc136/RecoLocalTracker/SiPixelRecHits/src/SiPixelTemplateReco.cc#L1188
+
+struct Vavilov_Func { 
+   Vavilov_Func() {}
+
+   double operator() (const double *x, const double *p) { 
+      double kappa = p[0]; 
+      double beta2 = p[1];
+      // float xvav = (qtotal-mpv)/sigmaQ;
+      return p[4]*( pdf.Pdf( (x[0]-p[2])/p[3], kappa,beta2) );
+   }
+
+   ROOT::Math::VavilovAccurate pdf; 
+};
+
+struct Vavilov_FuncVVIObjF { 
+   Vavilov_FuncVVIObjF() {}
+
+   double operator() (const double *x, const double *p) { 
+      double kappa = p[0]; 
+      double beta2 = p[1];
+      
+//       templ.vavilov_pars(p[2], p[3]), kappa); // issue: templ is unknown at this point
+      VVIObjF vvidist(kappa, beta2, 0);
+      // float xvav = (qtotal-mpv)/sigmaQ;
+      return (vvidist.fcn((x[0]-p[2])/p[3])*p[4] );
+   }
+ 
+};
+   static vector<TF1*> f(72);
+   static vector<Vavilov_FuncVVIObjF*> VVf(72);
+   for(i=60; i<72; ++i) {
+        VVf[i] = new Vavilov_FuncVVIObjF();
+        //    Vavilov_FuncVVIObjF * func = new Vavilov_FuncVVIObjF();
+        
+        std::string s = std::to_string(i);
+        const char *name = s.c_str();
+        f[i] = new TF1(name,VVf[i], 0,60000,5,"Vavilov_FuncVVIObjF");
+        f[i]->SetLineColor(416);
+//         if (i<65) {
+           f[i]->SetParameters(0.3,1.,hp[i]->GetMean(),hp[i]->GetRMS(),hp[i]->GetEntries());
+//         } else {
+//            f[i]->SetParameters(0.1,1.,hp[i]->GetMean(),hp[i]->GetRMS(),hp[i]->GetEntries());
+//         }
+        
+        // p[0] = kappa:  [0.01:10]; p[1] = beta^2; p[2] = mpv; p[3] = sigmaQ; p[4] = norm
+        f[i]->SetParLimits(0, 0.01, 10.0);
+        f[i]->SetParLimits(1, 0.95, 1.);
+        hp[i]->Fit(f[i]);
+   }
 
   
 //  Create an output filename for this run    
@@ -904,12 +996,13 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    sprintf(outfile1,"0Both.pdf");
    sprintf(outfile2,"0Both.pdf]");
 #endif
-   TCanvas c1("c1", header);
+   TCanvas c1("c2", header);
    c1.SetFillStyle(4000);
    c1.Print(outfile0);
    string dir ="mkdir /eos/user/t/tvami/www/projects/HSCP/"+currentDate();
    system(dir.c_str());
-   for(i=0; i<58; ++i) {
+   
+   for(i=0; i<72; ++i) {
 #if HSCPONLY == 0
      string name = "/eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/NormalTracks_hp"+to_string(i)+".png";
 #elif HSCPONLY == 1
@@ -931,12 +1024,6 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    }
    c1.Print(outfile2);
 //   int limit = nentries/100;
-
-   hFile.Write();
-  //gDirectory->pwd();
-//    hFile.ls();
-   hFile.Close();
-
 
 }
 
@@ -983,6 +1070,8 @@ const std::string currentDate() {
 
     return buf;
 }
+
+
 
 
 //define this as a plug-in
