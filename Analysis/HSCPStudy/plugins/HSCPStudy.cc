@@ -97,7 +97,7 @@
 #define TKPERCLMAX 100  
 #define DIGIMAX 200000
 // 0 -- Normal tracks, 1 -- HSCP only
-#define HSCPONLY 0
+#define HSCPONLY 0 
 #define TwoDTempAna
 //
 // class declaration
@@ -177,7 +177,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 //   
   // Local variables 
   bool ydouble[TYSIZE], xdouble[TXSIZE];
-  static float qscale, qscaleB, qscaleF, pcut, tkpcut, probQ, /*xs, ys,*/ probQonTrack, probQonTrackTerm;
+  static float qscale, qscaleB, qscaleF, pcut, tkpcut, probQ, /*xs, ys,*/ probQonTrack, probQonTrackTerm, dEdxEstimator;
   static float probQonTrackWMulti;
   static float xhit, yhit, xrec, yrec, sigmax, sigmay, probx, proby, cotalpha, cotbeta, locBx, locBz, xoff, yoff, xtemp, ytemp;  
   static int /*sfile, nrun, external,*/ sizex, sizey, layer, llayer, /*module, ladder, offladder, side,*/ disk, /*blade, onblade,*/ panel, lowpt;
@@ -205,7 +205,8 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   int nx=120;  
   gStyle->SetOptFit(101);
   gStyle->SetHistLineWidth(2);
-  static vector<TH1F*> hp(72);
+  static vector<TH1F*> hp(73);
+  static vector<TH2F*> hp2(1);
   edm::Service<TFileService> fs;
      
   hp[0] = fs->make<TH1F>("h201","number of vertices",60,-0.5,59.5);
@@ -239,8 +240,8 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   hp[28] = fs->make<TH1F>("h127","probXY2D",50,0.,1.);
   hp[29] = fs->make<TH1F>("h213","ProbXYQ2D",50,0.,1.);      
   
-  hp[30] = fs->make<TH1F>("h301","ProbQ on tracks (w/ multiplication)",50,0.,1.);
-  hp[31] = fs->make<TH1F>("h302","log(probQ) on tracks (w/ multiplication)",nx,-12.,0.);     
+  hp[30] = fs->make<TH1F>("h301","",50,0.,1.);
+  hp[31] = fs->make<TH1F>("h302","ProbQ2D on tracks (w/ combine)",nx,0.,1.);
   hp[32] = fs->make<TH1F>("h303","ProbQ on tracks (w/ combine)",50,0.,1.);
   hp[33] = fs->make<TH1F>("h304","Track Quality",17,-1.5,15.5);     
   hp[34] = fs->make<TH1F>("h218","After cuts: Track pT; pT (GeV)",150,0.,1500.);
@@ -280,11 +281,18 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   hp[66] = fs->make<TH1F>("h701_n4","Normalized Cluster Charge (BPix L4)",nx,0.,120000.);
   hp[67] = fs->make<TH1F>("h701_n4c","Corr Normalized Cluster Charge (BPix L4)",nx,0.,120000.);
   hp[68] = fs->make<TH1F>("h702_nr1","Normalized Cluster Charge (FPix R1)",nx,0.,120000.);
-  hp[69] = fs->make<TH1F>("h702_nr1_c","Corr Normalized Cluster Charge (FPix R1)",nx,0.,120000.);
-  hp[70] = fs->make<TH1F>("h702_nr12","Normalized Cluster Charge (FPix R2)",nx,0.,120000.);
-  hp[71] = fs->make<TH1F>("h702_nr12_c","Corr Normalized Cluster Charge (FPix R2)",nx,0.,120000.);
+  hp[69] = fs->make<TH1F>("h702_nr1c","Corr Normalized Cluster Charge (FPix R1)",nx,0.,120000.);
+  hp[70] = fs->make<TH1F>("h702_nr2","Normalized Cluster Charge (FPix R2)",nx,0.,120000.);
+  hp[71] = fs->make<TH1F>("h702_nr2c","Corr Normalized Cluster Charge (FPix R2)",nx,0.,120000.);
+  hp[72] = fs->make<TH1F>("hdEdxEstimator","dEdxEstimator; dEdx (MeV/cm); Entries (1/bin)",nx,0.,20.);
+#if HSCPONLY == 1
+  hp2[0] = fs->make<TH2F>("h2dEdxEstimatorVsP","dEdx vs track momentum; p (GeV);dEdx (MeV/cm)",120,0.,1200.,100,0.0,20.0);
+#else
+  hp2[0] = fs->make<TH2F>("h2dEdxEstimatorVsP","dEdx vs track momentum; p (GeV);dEdx (MeV/cm)",160,0.,16.,100,0.0,10.0);
+#endif
+  
   // Set style for the the histograms  
-  for(i=0; i<72; ++i) {
+  for(i=0; i<73; ++i) {
     hp[i]->SetLineColor(2);
     hp[i]->SetFillColor(38);
      if (i==23 || i == 27) {
@@ -294,10 +302,20 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     }
   }
   
+  for(i=0; i<1; ++i) {
+    hp2[i]->SetLineColor(2);
+    hp2[i]->SetFillColor(38);
+     if (i==0 || i == 27) {
+      hp2[i]->SetMinimum(1);
+     } else {
+      hp2[i]->SetMinimum(0.0);
+    }
+  }
+  
   // Template input info
 //   printf("enter probability cut, momentum cut, lowpt (1 = yes), bpix scale factor (pixelav/data), fpix scale factor \n");
 //   scanf("%f %f %d %f %f", &pcut, &tkpcut, &lowpt, &qscaleB, &qscaleF);
-  pcut = 0.01, tkpcut = 3.0, lowpt = 1, qscaleB=1., qscaleF=1.;
+  pcut = 0.01, tkpcut = .1, lowpt = 1, qscaleB=1., qscaleF=1.;
 
   printf("probability cut = %f, momentum cut = %f, lowpt = %d, bpix scale factor = %f, fpix scale factor = %f \n", pcut, tkpcut, lowpt, qscaleB, qscaleF);
   
@@ -352,7 +370,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   
   // Set branch adresses in memory outside of this file (PixelTree.cc and PixelTree.h)
   pixelTree *ana=new pixelTree(&chain);
-
+  int runNumber;
   // Loop over events
   Long64_t nentries=chain.GetEntries(); 
   Long64_t nbytes = 0, nb = 0;
@@ -382,6 +400,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 //     int orbit = ana->orbit;
     int lumiSect = ana->lumiblock; //lumiblock in Morris code
     int run = ana->run;
+    runNumber = run;
 
     if(jentry%1000 == 0) cout<<" jentry: "<< jentry <<" event: "<<event<<" run: "<<run<<" lumiSect: "<<lumiSect<<endl;
 //     cout<<"jentry: "<<jentry <<" event: "<<event<<" run: "<<run<<" lumiSect: "<<lumiSect<<" bx: "<<bx<<endl;
@@ -479,13 +498,11 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       if(TkP < tkpcut) continue;
             
         
-      int iTkPt = (int)(ana->TkPt[iTk]/0.1f);
-      if(iTkPt > 10) iTkPt = 10;
-        
       // Add initializations here
       bool large_pix = false;
       probQonTrackWMulti = 1 ;
       probQonTrackWMulti2D = 1 ;
+      float squareSumCharge = 0.0;
         
       // Loop over pixel clusters
       int nprobQOnTrack = 0;
@@ -789,7 +806,8 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
                 if (ring==2) hp[71]->Fill(qnormcorr);
             };
             
-            
+            squareSumCharge += pow((3.61e-05*qnormcorr),-2); //3.61e-06 multi to have the correct order of magnitudes
+            if (verbosity>2) std::cout << "squareSumCharge: " << squareSumCharge << std::endl;
             if(probXY > 0.01) {hp[14]->Fill(qclust);}
             if(probQ > 0.01) {hp[15]->Fill(qclust);}
             if(probXYQ > 0.01) {hp[16]->Fill(qclust);}
@@ -810,6 +828,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             if (probQ!=0) nprobQOnTrack++;
 //             if (probQ<0.1) cout << "PID0: " <<  PID0 << endl;
             probQonTrackWMulti *= probQ;
+            
 //             cout << "probQonTrackWMulti " << probQonTrackWMulti <<endl;
 //             if(probQonTrackWMulti > 0.00000001) cout << "log probQonTrackWMulti " << log(probQonTrackWMulti) << endl;
           } // end if there is no error from the template analysis 1D
@@ -870,6 +889,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
           } // end if there is no error from the template analysis 2D
 #endif
         } // end of loop over pixel clusters
+        
         if (verbosity>2) cout << "----------- ON TRACK INFO -----------" <<endl;  
         if(nprobQOnTrack!=TkClN) {
             if (verbosity>2) cout << "Error: nprobQOnTrack!=TkClN" << endl;
@@ -892,9 +912,15 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         }
           
         probQonTrack = probQonTrackWMulti*probQonTrackTerm;
+        dEdxEstimator = pow((squareSumCharge/TkClN),-0.5); 
+        if (verbosity>2) std::cout << "TkClN: " << TkClN << " dEdxEstimator: " << dEdxEstimator << std::endl;
+        hp[72]->Fill(dEdxEstimator);
+        hp2[0]->Fill(TkP,dEdxEstimator);
+
         if (verbosity>0) cout << "   probQonTrack " << probQonTrack << endl;
         if (verbosity>3) if (probQonTrack>0.98) cout << "probQonTrack is more then 0.98 in event " << event << endl;;
         hp[23]->Fill(probQonTrack);
+        hp[32]->Fill(probQonTrack);
         
 #ifdef TwoDTempAna
         if (verbosity>2) cout << "nprobQOnTrack2D: " << nprobQOnTrack2D << endl;
@@ -913,6 +939,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         if (verbosity>0) cout << "   probQonTrack2D " << probQonTrack2D << endl;
         if (verbosity>3) if (probQonTrack2D>0.98) cout << "probQonTrack2D is more then 0.98 in event " << event << endl;;
         hp[27]->Fill(probQonTrack2D);
+        hp[31]->Fill(probQonTrack2D);
 #endif
       } // end of loop over tracks
    } //end cycle for events
@@ -959,28 +986,43 @@ struct Vavilov_FuncVVIObjF {
    }
  
 };
+//    TMinuit minuit(5);
+//    minuit.SetFCN(Vavilov_FuncVVIObjF);
+   bool fitVVf = false;
+if (fitVVf) {
    static vector<TF1*> f(72);
-   static vector<Vavilov_FuncVVIObjF*> VVf(72);
+//    static vector<Vavilov_FuncVVIObjF*> VVf(72);
+   static vector<Vavilov_Func*> VVf(72);
+
    for(i=60; i<72; ++i) {
-        VVf[i] = new Vavilov_FuncVVIObjF();
-        //    Vavilov_FuncVVIObjF * func = new Vavilov_FuncVVIObjF();
+//         VVf[i] = new Vavilov_FuncVVIObjF();
+       VVf[i] = new Vavilov_Func();
+ 
         
-        std::string s = std::to_string(i);
+        std::string s = "f"+std::to_string(i);
         const char *name = s.c_str();
-        f[i] = new TF1(name,VVf[i], 0,60000,5,"Vavilov_FuncVVIObjF");
+//         f[i] = new TF1(name,VVf[i], 0,90000,5,"Vavilov_FuncVVIObjF");
+        f[i] = new TF1(name,VVf[i], 0,90000,5,"Vavilov_Func");
         f[i]->SetLineColor(416);
-//         if (i<65) {
-           f[i]->SetParameters(0.3,1.,hp[i]->GetMean(),hp[i]->GetRMS(),hp[i]->GetEntries());
-//         } else {
-//            f[i]->SetParameters(0.1,1.,hp[i]->GetMean(),hp[i]->GetRMS(),hp[i]->GetEntries());
-//         }
         
-        // p[0] = kappa:  [0.01:10]; p[1] = beta^2; p[2] = mpv; p[3] = sigmaQ; p[4] = norm
+//         f[i]->SetParameters(kappa,1.,hp[i]->GetMean(),hp[i]->GetRMS(),hp[i]->GetEntries());
+        f[i]->SetParameters(
+            0.000001*hp[i]->GetMean(),   // p[0]: kappa [0.01:10]
+            1.0,                         // p[1]: beta^2
+            0.9*hp[i]->GetMean(),        // p[2]: mpv
+            0.4*hp[i]->GetRMS(),         // p[3]: sigmaQ
+            0.5*hp[i]->GetEntries()      // p[4]: norm
+        );
+
+
         f[i]->SetParLimits(0, 0.01, 10.0);
-        f[i]->SetParLimits(1, 0.95, 1.);
+        f[i]->SetParLimits(1, 0.9, 1.);
+        f[i]->SetParLimits(2, 5000.0, 100000.0);
+        f[i]->SetParLimits(3, 0.0, 10000.0);
+        f[i]->SetParLimits(4, 0.0, 100000.0);
         hp[i]->Fit(f[i]);
    }
-
+}
   
 //  Create an output filename for this run    
 #if HSCPONLY == 0
@@ -999,31 +1041,70 @@ struct Vavilov_FuncVVIObjF {
    TCanvas c1("c2", header);
    c1.SetFillStyle(4000);
    c1.Print(outfile0);
-   string dir ="mkdir /eos/user/t/tvami/www/projects/HSCP/"+currentDate();
-   system(dir.c_str());
    
-   for(i=0; i<72; ++i) {
+   string webDir ="https://tvami.web.cern.ch/tvami/projects/HSCP/"+currentDate()+"/"+to_string(runNumber)+"/";
+   
+   string mkDir ="mkdir /eos/user/t/tvami/www/projects/HSCP/"+currentDate();
+   system(mkDir.c_str());
+   string mkDir2 ="mkdir /eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/"+to_string(runNumber);
+   system(mkDir2.c_str());
+   string cpIndex ="cp /eos/user/t/tvami/www/projects/HSCP/index.php /eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/";
+   system(cpIndex.c_str());
+   string cpHt ="cp /eos/user/t/tvami/www/projects/HSCP/.htaccess /eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/";
+   system(cpHt.c_str());
+   
+   string cpIndex2 ="cp /eos/user/t/tvami/www/projects/HSCP/index.php /eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/"+to_string(runNumber);
+   system(cpIndex2.c_str());
+   string cpHt2 ="cp /eos/user/t/tvami/www/projects/HSCP/.htaccess /eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/"+to_string(runNumber);
+   system(cpHt2.c_str());
+   
+   for(i=0; i<73; ++i) {
 #if HSCPONLY == 0
-     string name = "/eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/NormalTracks_hp"+to_string(i)+".png";
+     string name = "/eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/"+to_string(runNumber)+"/NormalTracks_hp"+to_string(i)+".png";
 #elif HSCPONLY == 1
-     string name = "/eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/SignalOnly_hp"+to_string(i)+".png";
+     string name = "/eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/"+to_string(runNumber)+"/SignalOnly_hp"+to_string(i)+".png";
 #elif HSCPONLY == 2
-     string name = "/eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/Both_hp"+to_string(i)+".png";
+     string name = "/eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/"+to_string(runNumber)+"/Both_hp"+to_string(i)+".png";
 #endif
      if (i==23 || i == 27) {
        c1.SetLogy(1);
        hp[i]->Draw();
+       hp[i]->Write();
        c1.Print(outfile1);
        c1.SaveAs(name.c_str());
      } else {
        c1.SetLogy(0);
        hp[i]->Draw();
+       hp[i]->Write();
        c1.Print(outfile1);
        c1.SaveAs(name.c_str());
      }
    }
+   
+   for(i=0; i<1; ++i) {
+#if HSCPONLY == 0
+     string name = "/eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/"+to_string(runNumber)+"/NormalTracks_hp_2D_"+to_string(i)+".png";
+#elif HSCPONLY == 1
+     string name = "/eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/"+to_string(runNumber)+"/SignalOnly_hp_2D_"+to_string(i)+".png";
+#elif HSCPONLY == 2
+     string name = "/eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/"+to_string(runNumber)+"/Both_hp_2D_"+to_string(i)+".png";
+#endif
+   if (i==0 || i == 27) {
+     c1.SetLogy(0);
+     hp2[i]->Draw("COLZ");
+     hp2[i]->Write("COLZ");
+     c1.Print(outfile1);
+     c1.SaveAs(name.c_str());
+     }
+   }
+   
    c1.Print(outfile2);
-//   int limit = nentries/100;
+   
+
+   
+   string cpRootFile ="cp HSCPAna_Run"+to_string(runNumber)+".root /eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/"+to_string(runNumber);
+   system(cpRootFile.c_str());
+   std::cout << "Plots can be seen in " << webDir << std::endl;
 
 }
 
