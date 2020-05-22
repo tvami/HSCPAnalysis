@@ -1,42 +1,27 @@
 import ROOT, sys, os, time, re
-from common_functions import *
+#from common_functions import *
 from optparse import OptionParser
-parser = OptionParser(usage="Usage: python %prog date_tag")
+parser = OptionParser(usage="Usage: python %prog fileName.root Type (HSCP/Norm)")
 (opt,args) = parser.parse_args()
-
-#name = "2019_09_15"
-#name = "2019_09_29_part1_replot"
-#name = "2019_11_04"
-#name = "2019_11_06"
-#name = "2020_01_20"
-#name = "2020_01_23"
-#name = "2020_01_25"
-#name = "2020_01_29"
-#name = "2020_02_03"
-#name = "2020_02_05"
-#name = "2020_03_02"
-#name = "2020_03_11"
-#name = "2020_03_21"
-#name = "2020_04_10"
-name = "2020_05_21-2"
 
 save = 1
 
 ROOT.gROOT.SetStyle("Plain")
-ROOT.gStyle.SetOptStat(1)
+ROOT.gStyle.SetOptStat(0)
 ROOT.gStyle.SetPalette(1)
 
-if len(args)==0: args=[name]
+fileName = sys.argv[1]
+Type = sys.argv[2]
 
 # Only remove stuff for before matching
 clean_dirname = {
     "Counts_vs_" : "",
     "Bins"       : "",
-    #"RazorLep"   : "Razor",
-    #"Razor1vl"   : "Razor",
-    #"Razorll"    : "Razor",
-    #"RazorNoPho" : "Razor",
-    #"JetAK8"     : "",
+    "RazorLep"   : "Razor",
+    "Razor1vl"   : "Razor",
+    "Razorll"    : "Razor",
+    "RazorNoPho" : "Razor",
+    "JetAK8"     : "",
     }
 replace_in_dirname = {
     #"METFine" : "dir:Fine_binning/MET",
@@ -45,37 +30,69 @@ replace_in_dirname = {
     "ROCCurve_vs_"        : "",
     "EleFromW_"           : "dir:ROC_Curves/EleFromW",
     "MuFromW_"            : "dir:ROC_Curves/MuFromW",
-    #"EleFromTop_"         : "dir:ROC_Curves/EleFromTop",
-    #"EleNuFromTop_"       : "dir:ROC_Curves/EleNuFromTop",
-    #"MuFromTop_"          : "dir:ROC_Curves/MuFromTop",
-    #"MuNuFromTop_"        : "dir:ROC_Curves/MuNuFromTop",
-    #"EleFromHardProcess_" : "dir:ROC_Curves/EleFromHardProcess",
-    #"MuFromHardProcess_"  : "dir:ROC_Curves/MuFromHardProcess",
-    #"EleLepTop_"          : "dir:ROC_Curves/EleLepTop",
-    #"EleNuFromLepTop_"    : "dir:ROC_Curves/EleNuFromLepTop",
-    #"MuLepTop_"           : "dir:ROC_Curves/MuLepTop",
-    #"MuNuFromLepTop_"     : "dir:ROC_Curves/MuNuFromLepTop",
-    #"HadTop_"             : "dir:ROC_Curves/HadTop",
-    #"HadW_"               : "dir:ROC_Curves/HadW",
-    #"HadZ_"               : "dir:ROC_Curves/HadZ",
-    #"HadH_"               : "dir:ROC_Curves/HadH",
+    "EleFromTop_"         : "dir:ROC_Curves/EleFromTop",
+    "EleNuFromTop_"       : "dir:ROC_Curves/EleNuFromTop",
+    "MuFromTop_"          : "dir:ROC_Curves/MuFromTop",
+    "MuNuFromTop_"        : "dir:ROC_Curves/MuNuFromTop",
+    "EleFromHardProcess_" : "dir:ROC_Curves/EleFromHardProcess",
+    "MuFromHardProcess_"  : "dir:ROC_Curves/MuFromHardProcess",
+    "EleLepTop_"          : "dir:ROC_Curves/EleLepTop",
+    "EleNuFromLepTop_"    : "dir:ROC_Curves/EleNuFromLepTop",
+    "MuLepTop_"           : "dir:ROC_Curves/MuLepTop",
+    "MuNuFromLepTop_"     : "dir:ROC_Curves/MuNuFromLepTop",
+    "HadTop_"             : "dir:ROC_Curves/HadTop",
+    "HadW_"               : "dir:ROC_Curves/HadW",
+    "HadZ_"               : "dir:ROC_Curves/HadZ",
+    "HadH_"               : "dir:ROC_Curves/HadH",
     }
 # Modify plotname
 replace_in_plotname = {
     # Boost SRs
-    "CR_Fake"             : "dir:Plots_"+name,
-    "CR_"                 : "dir:Plots_"+name,
-    "SR_"                 : "dir:Plots_"+name,
-    "Val_"                : "dir:Plots_"+name,
+    "StackPlot_" : "",
+    "StackPlotSignal" : "",
+    "StackPlotTopSignal" : "",
+    "StackPlotVSignal" : "",
+    "StackPlotHSignal" : "",
+    "_JetHTMET" : "",
+    "JetHTMET_" : "",
+    "_BlindData" : "",
+    "_Ratio" : "",
+    "_0_" : "dir:SR_0Lepton",
+    "_1_" : "dir:SR_1Lepton",
+    # HLT
+    "HadronicMeasurements" : "dir:HLT_Hadronic",
+    "LeptonicMeasurements" : "dir:HLT_Leptonic",
+    "_Baseline" : "",
+    "_1Ele"     : "",
+    "_1Muon"    : "",
+    "Bins"      : "",
+    "CR_Fake"             : "dir:Fake_rates",
+    "CR_"                 : "dir:Control_regions",
+    "SR_"                 : "dir:Signal_regions",
+    "Val_"                : "dir:Validation_regions",
     }
 
 # list of: plot directories, match strings
 plot_these = [
-    # Stack plots
     [
-        [".*Eta.*",".*PtBins.*"],
-        [".*Gen*"],
-    ]
+       #[".*Razor.*", ".*HT.*", ".*MET.*", ".*R2.*", ".*MR.*"],
+       #[".*Razor.*", ".*R2.*", ".*MR.*"],
+        [".*MRR2.*", ".*HT.*", ".*MET.*", ".*DeltaPhi.*", ".*NJet.*"],
+        ["StackPlot_JetHTMET_Pre.*_Ratio",
+            "StackPlot_JetHTMET_CR.*_Ratio",
+            "StackPlot_JetHTMET_Val.*_Ratio",
+            #"StackPlot.*Signal_BlindData_SR.*",
+        ]
+    ],
+    # Preselection plots
+    [
+        ["JetPt.*", ".*MegaJet.*"],
+        ["StackPlot_JetHTMET_Pre.*_Ratio",
+            "StackPlot_JetHTMET_CR.*_Ratio",
+            "StackPlot_JetHTMET_Val.*_Ratio",
+            #"StackPlot.*Signal_BlindData_SR.*",
+        ]
+    ],
 ]
 for plot_comb in plot_these:
     selected_dirs = plot_comb[0]
@@ -89,9 +106,10 @@ for plot_comb in plot_these:
     for pattern in selected_plots:
         plot_patterns.append(re.compile(pattern))
     
-    for  name in args:
-        input_file = "Plotter_out_2020_05_21.root" 
-        output_dir = "./"
+    if (fileName!=None):
+        print fileName
+        input_file = fileName
+        output_dir = "Plots/"
 
         if save and not os.path.exists(output_dir): os.mkdir(output_dir)
         
@@ -105,10 +123,9 @@ for plot_comb in plot_these:
                 if part_to_replace in clean_dirname_to_match:
                     clean_dirname_to_match = clean_dirname_to_match.replace(part_to_replace, clean_dirname[part_to_replace])
             # Find the plot name to match
-            match_dir = False
+            match_dir = True #False
             for pattern in dir_patterns:
                 if re.match(pattern, clean_dirname_to_match):
-                    #print(clean_dirname_to_match)
                     match_dir = True
                     break
             if match_dir:
@@ -117,25 +134,18 @@ for plot_comb in plot_these:
                 for i in range(0, curr_dir.GetListOfKeys().GetEntries()):
                     # Match the plot of interest
                     keyname = curr_dir.GetListOfKeys().At(i).GetName()
-                    #if re.match("StackPlot", keyname):
-                    #match_plot = True 
-                    #for pattern in plot_patterns:
-                        #if (re.match("StackPlot", keyname) or re.match("HLT", keyname)):
-                            #match_plot = False
-                            #break
-                            
-                    #if re.match("StackPlot", keyname):
-                        #print(keyname)
-                        #continue
-                    if re.match("HadronicMeasurements", keyname):
-                        print("Skipped:",keyname)
-                        continue
-                    else:
-                        #print(keyname)
+                    match_plot = True #False
+                    for pattern in plot_patterns:
+                        if re.match(pattern, keyname):
+                            match_plot = True
+                            break
+                    if match_plot:
                         # The plot should be TCanvas
                         obj = f.Get(dirname+"/"+keyname)
-                        if obj.InheritsFrom("TCanvas"):
-                            can = obj
+                        if (True):
+                        #if obj.InheritsFrom("TCanvas"):
+                            #can = obj
+                            can = ROOT.TCanvas(dirname+"/"+keyname)
                             clean_keyname = keyname
                             subdirname = ""
                             for part_to_replace in replace_in_plotname.keys():
@@ -159,9 +169,14 @@ for plot_comb in plot_these:
                             # Save plot
                             if save:
                                 name = output_dir + newname + ".png"
+                                if (Type=="HSCP"):
+                                    name =  name.replace("analysis","SignalOnly")
+                                elif (Type=="Norm"):
+                                    name =  name.replace("analysis","NormalTracks")
+                                else:
+                                    print("Please specify if Type is HSCP or Norm")
                                 if not os.path.exists(os.path.dirname(name)): os.makedirs(os.path.dirname(name))
-                                can.Draw()
-                                #print(name)
+                                obj.Draw()
                                 can.SaveAs(name)
                                 #can.SaveAs(name.replace(".png",".pdf"))
                                 #can.SaveAs(name.replace(".png",".C"))
