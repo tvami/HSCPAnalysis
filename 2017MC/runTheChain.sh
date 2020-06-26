@@ -1,0 +1,3 @@
+cmsRun 2-3HSCP_Gluino_Mass1800_DIGI_DIGI2RAW_RAW2DIGI_L1_RECO_trackingOnly.py
+cmsRun 4pixelTree-mc.py 
+cmsRun 5runHSCPAnalyzer.py
