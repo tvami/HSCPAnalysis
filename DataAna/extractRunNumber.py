@@ -1,4 +1,4 @@
-# usage: 
+# Usage: 
 # voms-proxy-init -rfc -voms cms -valid 192:00
 # python3 extractRunNumber.py -l HSCP_file2.list
 
@@ -12,11 +12,13 @@ def extractRunNumber(inlist):
 			#filename = "root://cms-xrd-global.cern.ch/"+f_name.rstrip()
 			#f=ROOT.TFile.Open("root://cms-xrd-global.cern.ch//store/user/tvami/PixelTrees/SingleMuon/crab_ALCARECO_2018A_PixelTrees_v1/200604_040318/0000/PixelTree_99.root")
 			f=ROOT.TFile.Open(f_name.rstrip())
+			if f.IsZombie():
+				continue
 			tree=f.Get("pixelTree")
 			runHisto=ROOT.TH1F("runHisto","", 50,0,5000000 )
 			tree.Draw("run>>runHisto")
 			mean = runHisto.GetMean()
-			runNumber = round(mean)
+			runNumber = int(round(mean))
 			print("inputFileName="+(f_name.rstrip())+" runNumber=" +str(runNumber))
 			
 		
@@ -29,3 +31,4 @@ if __name__ == '__main__':
     
     p = parser.parse_args()
     extractRunNumber(p.inlist)
+
