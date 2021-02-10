@@ -27,8 +27,6 @@ def draw(file_map, h_name, h_name2, layer,  outfile):
 
     for rn, f_name in file_map.iteritems():
         #print(rn, f_name)
-        x.append(float(rn))
-        ex.append(0.)
         f_in = ROOT.TFile(f_name)
         if f_in.IsZombie(): continue
         
@@ -79,6 +77,8 @@ def draw(file_map, h_name, h_name2, layer,  outfile):
             continue
         #print (rn, p2,p2_err)
         #print (rn, p2_2,p2_err_2)
+        x.append(float(rn))
+        ex.append(0.)
         y.append(p2)
         y2.append(p2_2)
         ey.append(p2_err)
