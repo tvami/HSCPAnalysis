@@ -165,7 +165,7 @@ void
 HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
 
-  cout << "Opening input file " << fileName << endl;
+  std::cout << "Opening input file " << fileName.c_str() << std::endl;
   TChain chain("pixelTree");
   chain.Add(fileName.c_str());
 
@@ -178,7 +178,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   // Local variables 
   bool ydouble[TYSIZE], xdouble[TXSIZE];
   static float qscale, qscaleB, qscaleF, pcut, tkpcut, probQ, /*xs, ys,*/ probQonTrack, probQonTrackTerm, probXYonTrack, probXYonTrackTerm, dEdxEstimator;
-  static float probQonTrackWMulti, probXYonTrackWMulti;
+  static float probQonTrackWMulti, probXYonTrackWMulti, qnormcorr;
   static float xhit, yhit, xrec, yrec, sigmax, sigmay, probx, proby, cotalpha, cotbeta, locBx, locBz, xoff, yoff, xtemp, ytemp;  
   static int /*sfile, nrun, external,*/ size, sizex, sizey, layer, llayer, /*module, ladder, offladder, side,*/ disk, /*blade, onblade,*/ panel, lowpt;
 //   static int tladp1[4], qlad[4]={3, 7, 11, 16};
@@ -211,7 +211,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   int nx=120;  
   gStyle->SetOptFit(101);
   gStyle->SetHistLineWidth(2);
-  static vector<TH1F*> hp(79);
+  static vector<TH1F*> hp(85);
   static vector<TH2F*> hp2(3);
   edm::Service<TFileService> fs;
      
@@ -305,9 +305,15 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   hp2[1] = fs->make<TH2F>("h2dEdxEstimatorVsLogP","dEdx vs log track momentum; ln(p) (GeV);dEdx (MeV/cm)",100,0.,10.,100,0.0,6.0);
 #endif
   hp2[2] = fs->make<TH2F>("h2ProbQvsProbXY","ProbQ vs ProbXY; Combined on-track charge probability;Combined on-track shape probability",50,0.,1.,50,0.,1.);
-  
+    
+  hp[79] = fs->make<TH1F>("corrFactL1","Correction factor on Layer 1",100,0,5);
+  hp[80] = fs->make<TH1F>("corrFactL2","Correction factor on Layer 2",100,0,5);
+  hp[81] = fs->make<TH1F>("corrFactL3","Correction factor on Layer 3",100,0,5);
+  hp[82] = fs->make<TH1F>("corrFactL4","Correction factor on Layer 4",100,0,5);
+  hp[83] = fs->make<TH1F>("corrFactR1","Correction factor on Ring 1",100,0,5);
+  hp[84] = fs->make<TH1F>("corrFactR2","Correction factor on Ring 2",100,0,5);
   // Set style for the the histograms  
-  for(i=0; i<79; ++i) {
+  for(i=0; i<85; ++i) {
     hp[i]->SetLineColor(2);
     hp[i]->SetFillColor(38);
      if (i==23 || i == 27) {
@@ -332,7 +338,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 //   scanf("%f %f %d %f %f", &pcut, &tkpcut, &lowpt, &qscaleB, &qscaleF);
 //   pcut = 0.01, tkpcut = 10., lowpt = 1, qscaleB=1., qscaleF=1.;
 //   pcut = 0.5, tkpcut = 5., lowpt = 0, qscaleB=1., qscaleF=1.;
-     pcut = 0.01, tkpcut = 100., lowpt = 0, qscaleB=1., qscaleF=1.;
+     pcut = 0.01, tkpcut = 3, lowpt = 0, qscaleB=1., qscaleF=1.;
 //
 
   printf("probability cut = %f, momentum cut = %f, lowpt = %d, bpix scale factor = %f, fpix scale factor = %f \n", pcut, tkpcut, lowpt, qscaleB, qscaleF);
@@ -422,7 +428,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     runNumber = run;
 
     if(jentry%1000 == 0) cout<<" jentry: "<< jentry <<" event: "<<event<<" run: "<<run<<" lumiSect: "<<lumiSect<<endl;
-//     cout<<"jentry: "<<jentry <<" event: "<<event<<" run: "<<run<<" lumiSect: "<<lumiSect<<" bx: "<<bx<<endl;
+	cout<<"jentry: "<<jentry <<" event: "<<event<<" run: "<<run<<" lumiSect: "<<lumiSect<<endl;
 //     continue;
      
     int nclus = ana->ClN;
@@ -836,17 +842,27 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
                 if (ring==2) hp[70]->Fill(qnorm);
             };
             qnormcorr = (qnorm*templ.qscale())/templ.r_qMeas_qTrue();
+            corrFactor = (templ.qscale())/templ.r_qMeas_qTrue();
             if(bpix) {
                 hp[3]->Fill(qnormcorr);
                 if (layer==1) hp[61]->Fill(qnormcorr);
                 if (layer==2) hp[63]->Fill(qnormcorr);
                 if (layer==3) hp[65]->Fill(qnormcorr);
                 if (layer==4) hp[67]->Fill(qnormcorr);
+                
+                if (layer==1) hp[79]->Fill(corrFactor);
+                if (layer==2) hp[80]->Fill(corrFactor);
+                if (layer==3) hp[81]->Fill(corrFactor);
+                if (layer==4) hp[82]->Fill(corrFactor);
             } else {
                 hp[4]->Fill(qnormcorr);
                 if (ring==1) hp[69]->Fill(qnormcorr);
                 if (ring==2) hp[71]->Fill(qnormcorr);
+                
+                if (ring==1) hp[83]->Fill(corrFactor);
+                if (ring==2) hp[84]->Fill(corrFactor);
             };
+            
             
             squareSumCharge += pow((3.61e-05*qnormcorr),-2); //3.61e-06 multi to have the correct order of magnitudes
             if (verbosity>4) std::cout << "squareSumCharge: " << squareSumCharge << std::endl;
@@ -866,7 +882,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
               hp[ihist]->Fill(dx);
               hp[ihist+1]->Fill(dy);
             }
-//             if(probXY < pcut) continue; //TODO
+            if(probXY < pcut) continue; //TODO
             hp[76]->Fill(size);
             hp[77]->Fill(sizex);
             hp[78]->Fill(sizey);
@@ -1035,6 +1051,9 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 //    for(i=42; i<58; ++i) {hp[i]->Fit("gaus");} // this was the final on Oct 24, 2019
 // https://github.com/cms-sw/cmssw/blob/47c3d4c0989c1db4e371d8c888e1dbd66b0bc136/RecoLocalTracker/SiPixelRecHits/src/SiPixelTemplateReco.cc#L1188
 
+
+// There are two Vavilov implementations, one from ROOT the other from vdt
+
 struct Vavilov_Func { 
    Vavilov_Func() {}
 
@@ -1064,7 +1083,7 @@ struct Vavilov_FuncVVIObjF {
 };
 //    TMinuit minuit(5);
 //    minuit.SetFCN(Vavilov_FuncVVIObjF);
-   bool fitVVf = false;
+   bool fitVVf = true;
 if (fitVVf) {
    static vector<TF1*> f(72);
 //    static vector<Vavilov_FuncVVIObjF*> VVf(72);
@@ -1118,6 +1137,9 @@ if (fitVVf) {
    c1.SetFillStyle(4000);
    c1.Print(outfile0);
    
+   bool saveToEOS=false;
+   
+   if (saveToEOS) {
    string webDir ="https://tvami.web.cern.ch/tvami/projects/HSCP/"+currentDate()+"/"+to_string(runNumber)+"/";
    
    string mkDir ="mkdir /eos/user/t/tvami/www/projects/HSCP/"+currentDate();
@@ -1134,7 +1156,7 @@ if (fitVVf) {
    string cpHt2 ="cp /eos/user/t/tvami/www/projects/HSCP/.htaccess /eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/"+to_string(runNumber);
    system(cpHt2.c_str());
    
-   for(i=0; i<79; ++i) {
+   for(i=0; i<85; ++i) {
 #if HSCPONLY == 0
      string name = "/eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/"+to_string(runNumber)+"/NormalTracks_hp"+to_string(i)+".png";
 #elif HSCPONLY == 1
@@ -1198,6 +1220,7 @@ if (fitVVf) {
 #endif
    std::cout << cpRootFile << std::endl;
    std::cout << "Plots can be seen in " << webDir << std::endl;
+   }
 
 }
 
