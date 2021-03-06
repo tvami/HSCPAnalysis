@@ -178,7 +178,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   // Local variables 
   bool ydouble[TYSIZE], xdouble[TXSIZE];
   static float qscale, qscaleB, qscaleF, pcut, tkpcut, probQ, /*xs, ys,*/ probQonTrack, probQonTrackTerm, probXYonTrack, probXYonTrackTerm, dEdxEstimator;
-  static float probQonTrackWMulti, probXYonTrackWMulti, qnormcorr;
+  static float probQonTrackWMulti, probXYonTrackWMulti, corrFactor;
   static float xhit, yhit, xrec, yrec, sigmax, sigmay, probx, proby, cotalpha, cotbeta, locBx, locBz, xoff, yoff, xtemp, ytemp;  
   static int /*sfile, nrun, external,*/ size, sizex, sizey, layer, llayer, /*module, ladder, offladder, side,*/ disk, /*blade, onblade,*/ panel, lowpt;
 //   static int tladp1[4], qlad[4]={3, 7, 11, 16};
