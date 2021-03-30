@@ -297,6 +297,14 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   hp[76] = fs->make<TH1F>("clustSize","Cluster size (after cuts);Cluster size;Entries (1/bin)",20,0.,20.);
   hp[77] = fs->make<TH1F>("clustSizeX","Cluster size in x (after cuts);Cluster size;Entries (1/bin)",20,0.,20.);
   hp[78] = fs->make<TH1F>("clustSizeY","Cluster size in y (after cuts);Cluster size;Entries (1/bin)",20,0.,20.);
+
+  hp[79] = fs->make<TH1F>("corrFactL1","Correction factor on Layer 1",100,0,5);
+  hp[80] = fs->make<TH1F>("corrFactL2","Correction factor on Layer 2",100,0,5);
+  hp[81] = fs->make<TH1F>("corrFactL3","Correction factor on Layer 3",100,0,5);
+  hp[82] = fs->make<TH1F>("corrFactL4","Correction factor on Layer 4",100,0,5);
+  hp[83] = fs->make<TH1F>("corrFactR1","Correction factor on Ring 1",100,0,5);
+  hp[84] = fs->make<TH1F>("corrFactR2","Correction factor on Ring 2",100,0,5);
+
 #if HSCPONLY == 1
   hp2[0] = fs->make<TH2F>("h2dEdxEstimatorVsP","dEdx vs track momentum; p (GeV);dEdx (MeV/cm)",350,0.,3500.,100,0.0,6.0);
   hp2[1] = fs->make<TH2F>("h2dEdxEstimatorVsLogP","dEdx vs log track momentum; ln(p);dEdx (MeV/cm)",100,0.,10.,100,0.0,6.0);
@@ -306,12 +314,6 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 #endif
   hp2[2] = fs->make<TH2F>("h2ProbQvsProbXY","ProbQ vs ProbXY; Combined on-track charge probability;Combined on-track shape probability",50,0.,1.,50,0.,1.);
     
-  hp[79] = fs->make<TH1F>("corrFactL1","Correction factor on Layer 1",100,0,5);
-  hp[80] = fs->make<TH1F>("corrFactL2","Correction factor on Layer 2",100,0,5);
-  hp[81] = fs->make<TH1F>("corrFactL3","Correction factor on Layer 3",100,0,5);
-  hp[82] = fs->make<TH1F>("corrFactL4","Correction factor on Layer 4",100,0,5);
-  hp[83] = fs->make<TH1F>("corrFactR1","Correction factor on Ring 1",100,0,5);
-  hp[84] = fs->make<TH1F>("corrFactR2","Correction factor on Ring 2",100,0,5);
   // Set style for the the histograms  
   for(i=0; i<85; ++i) {
     hp[i]->SetLineColor(2);
