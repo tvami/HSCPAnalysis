@@ -315,7 +315,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   hp2[2] = fs->make<TH2F>("h2ProbQvsProbXY","ProbQ vs ProbXY; Combined on-track charge probability;Combined on-track shape probability",50,0.,1.,50,0.,1.);
     
   // Set style for the the histograms  
-  for(i=0; i<85; ++i) {
+  for(i=0; i<hp.size(); ++i) {
     hp[i]->SetLineColor(2);
     hp[i]->SetFillColor(38);
      if (i==23 || i == 27) {
@@ -325,7 +325,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     }
   }
   
-  for(i=0; i<3; ++i) {
+  for(i=0; i<hp2.size(); ++i) {
     hp2[i]->SetLineColor(2);
     hp2[i]->SetFillColor(38);
      if (i==0 || i == 27) {
@@ -1158,7 +1158,7 @@ if (fitVVf) {
    string cpHt2 ="cp /eos/user/t/tvami/www/projects/HSCP/.htaccess /eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/"+to_string(runNumber);
    system(cpHt2.c_str());
    
-   for(i=0; i<85; ++i) {
+   for(i=0; i<hp.size(); ++i) {
 #if HSCPONLY == 0
      string name = "/eos/user/t/tvami/www/projects/HSCP/"+currentDate()+"/"+to_string(runNumber)+"/NormalTracks_hp"+to_string(i)+".png";
 #elif HSCPONLY == 1
