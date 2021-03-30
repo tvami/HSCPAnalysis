@@ -934,10 +934,10 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             if(nbad < 50) {printf("2D Template reco with ID %d of cotalpha/cotbeta = %f/%f failed with error %d \n", TemplID2, cotalpha, cotbeta, ierr);}
           } else {
             if (verbosity>2) cout << "----------- 2D template analysis on a cluster -----------" <<endl;
-            xtemp = xoff + xrec2D;
-            ytemp = yoff + yrec2D;
-            dx = xrec2D - xhit;
-            dy = yrec2D - yhit;
+            //xtemp = xoff + xrec2D;
+            //ytemp = yoff + yrec2D;
+            //dx = xrec2D - xhit;
+            //dy = yrec2D - yhit;
 
             // Check resolution and weights 
 //          if(qbin > 3) {printf(" qbin = %d \n", qbin);}
