@@ -1,8 +1,6 @@
 # Usage: 
 # voms-proxy-init -rfc -voms cms -valid 192:00
 # python 3getListsDatesDir.py -l crab_ALCARECO_RunsDir.txt -l2 crab_ALCARECO_DatesDir.txt 
-# where crab_ALCARECO_RunsDir.txt was comming from step 1
-# and crab_ALCARECO_DatesDir.txt is coming from 2getListsRunDir.py
 
 import argparse
 import ROOT
@@ -16,7 +14,8 @@ def extractRunNumber(inlist, inlist2):
                         rline2 = f_name2.rstrip().split()
 			dir1 = rline[0]
                         dir2 = rline2[0]
-			print("root://cms-xrd-global.cern.ch//store/user/tvami/PixelTreesRuns/SingleMuon/" + dir1 + "/"+ dir2+"/0000/PixelTree_1.root")
+			lsCommand = "dpns-ls /dpm/kfki.hu/home/cms/phedex/store/user/tvami/PixelTreesRuns/SingleMuon/" + dir1  + "/"+ dir2 + "/0000/" + " >> 3crab_ALCARECO_FilesDir.txt"
+                        os.system(lsCommand)
 		
 if __name__ == '__main__':
     

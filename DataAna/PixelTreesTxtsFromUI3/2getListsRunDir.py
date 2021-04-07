@@ -14,7 +14,7 @@ def extractRunNumber(inlist):
 		for f_name in tqdm(file):
 			rline = f_name.rstrip().split()
 			dir1 = rline[0]
-			lsCommand = "dpns-ls /dpm/kfki.hu/home/cms/phedex/store/user/tvami/PixelTreesRuns/SingleMuon/" + dir1  +" >> dir1.txt"
+			lsCommand = "dpns-ls /dpm/kfki.hu/home/cms/phedex/store/user/tvami/PixelTreesRuns/SingleMuon/" + dir1  +" >> 2crab_ALCARECO_DatesDir.txt"
 			os.system(lsCommand)
 		
 if __name__ == '__main__':
