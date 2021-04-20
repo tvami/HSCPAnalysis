@@ -9,6 +9,7 @@ save = 1
 ROOT.gROOT.SetStyle("Plain")
 ROOT.gStyle.SetOptStat(0)
 ROOT.gStyle.SetPalette(1)
+ROOT.gROOT.SetBatch(True)
 
 fileName = sys.argv[1]
 Type = sys.argv[2]
