@@ -340,7 +340,8 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 //   scanf("%f %f %d %f %f", &pcut, &tkpcut, &lowpt, &qscaleB, &qscaleF);
 //   pcut = 0.01, tkpcut = 10., lowpt = 1, qscaleB=1., qscaleF=1.;
 //   pcut = 0.5, tkpcut = 5., lowpt = 0, qscaleB=1., qscaleF=1.;
-     pcut = 0.01, tkpcut = 3, lowpt = 0, qscaleB=1., qscaleF=1.;
+//     pcut = 0.01, tkpcut = 3, lowpt = 0, qscaleB=1., qscaleF=1.;
+     pcut = 0.01, tkpcut = 100, lowpt = 0, qscaleB=1., qscaleF=1.;
 //
 
   printf("probability cut = %f, momentum cut = %f, lowpt = %d, bpix scale factor = %f, fpix scale factor = %f \n", pcut, tkpcut, lowpt, qscaleB, qscaleF);
