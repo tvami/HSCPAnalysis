@@ -184,7 +184,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 //   static int tladp1[4], qlad[4]={3, 7, 11, 16};
   static int lumiMin = 100000, lumiMax = 0;
   static vector<int> nbin(5,0);
-  int i, j, ierr, qbin;
+  int i, j, ierr, ierr2, qbin;
   bool bpix;
 //   bool removePixelLayer1 = false;
   double log10probXY, log10probQ, log10probXYQ, logprobQonTrackWMulti, logprobXYonTrackWMulti, qclust, qnorm, qnormcorr, proba, probXY, probXYQ, dx, dy, TkP, xhmod, yhmod;
@@ -204,59 +204,59 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   float cluster2d[TXSIZE][TYSIZE];
   
   static int edgeflagy = 0, edgeflagx = 0;
-  static float xrec2D, yrec2D, sigmax2D, sigmay2D, probQ2D, probQonTrack2D, probQonTrackTerm2D, deltay, probXY2D;
-  double /*log10probXY2D, log10probQ2D, log10probXYQ2D,*/ logprobQonTrackWMulti2D, probXYQ2D;
+  static float xrec2D, yrec2D, sigmax2D, sigmay2D, probQ2D, probQonTrack2D, probXYonTrack2D, probXYonTrackWMulti2D, probQonTrackTerm2D, probXYonTrackTerm2D, deltay, probXY2D;
+  double /*log10probXY2D, log10probQ2D, log10probXYQ2D,*/ logprobQonTrackWMulti2D, logprobXYonTrackWMulti2D, probXYQ2D;
 #endif
   
   int nx=120;  
   gStyle->SetOptFit(101);
   gStyle->SetHistLineWidth(2);
   static vector<TH1F*> hp(85);
-  static vector<TH2F*> hp2(3);
+  static vector<TH2F*> hp2(5);
   edm::Service<TFileService> fs;
      
-  hp[0] = fs->make<TH1F>("h201","number of vertices",60,-0.5,59.5);
-  hp[1] = fs->make<TH1F>("h202","vertex x",20,-1.,1.);      
-  hp[2] = fs->make<TH1F>("h203","vertex y",20,-1.,1.);      
-  hp[3] = fs->make<TH1F>("h204","Corrected normalized Cluster Charge (BPix);Cluster charge;Entries (1/bin)",nx,0.,120000.);
-  hp[4] = fs->make<TH1F>("h205","Corrected normalized Cluster Charge (FPix);Cluster charge;Entries (1/bin)",nx,0.,120000.);
-  hp[5] = fs->make<TH1F>("h206","ProbXY;Shape probability;Entries (1/bin)",50,0.,1.);
-  hp[6] = fs->make<TH1F>("h207","ProbQ;Charge probability;Entries (1/bin)",50,0.,1.);
-  hp[7] = fs->make<TH1F>("h208","ProbXYQ",50,0.,1.);      
-  hp[8] = fs->make<TH1F>("h209","log10(ProbXY)",nx,-12.,0.);      
-  hp[9] = fs->make<TH1F>("h210","log10(ProbQ)",nx,-12.,0.);     
-  hp[10] = fs->make<TH1F>("h211","log10(ProbXYQ)",nx,-12.,0.);      
-  hp[11] = fs->make<TH1F>("h212","log10(ProbXY) (ProbQ>0.01)",nx,-12.,0.);      
-  hp[12] = fs->make<TH1F>("h701","Normalized Cluster Charge (BPix);Cluster charge;Entries (1/bin)",nx,0.,120000.);
-  hp[13] = fs->make<TH1F>("h702","Normalized Cluster Charge (FPix);Cluster charge;Entries (1/bin)",nx,0.,120000.);
-  hp[14] = fs->make<TH1F>("h703","Cluster Charge (ProbXY > 0.01);Cluster charge;Entries (1/bin)",nx,0.,200000.);      
-  hp[15] = fs->make<TH1F>("h704","Cluster Charge (ProbQ>0.01);Cluster charge;Entries (1/bin)",nx,0.,200000.);
-  hp[16] = fs->make<TH1F>("h705","Cluster Charge (ProbXYQ>0.01);Cluster charge;Entries (1/bin)",nx,0.,200000.);
-  hp[17] = fs->make<TH1F>("h106","dx_temp (bpix); #Deltax (#mum)",nx,-50.,50.);
-  hp[18] = fs->make<TH1F>("h117","dy_temp (bpix); #Deltay (#mum)",nx,-50.,50.);
-  hp[19] = fs->make<TH1F>("h118","Track tranverse momentum; pT (GeV)",nx,0.,12.);
-  hp[20] = fs->make<TH1F>("h119","Track full momentum; p (GeV)",nx,0.,12.);
-  hp[21] = fs->make<TH1F>("h120","ProbQ on tracks (w/ multiplication);Multiplied on-track charge probability;Entries (1/bin)",100,0.,1.);
-  hp[22] = fs->make<TH1F>("h121","ProbXY on tracks (w/ combine);Combined on-track shape probability;Entries (1/bin)",100,0.,1.);
-  hp[23] = fs->make<TH1F>("h122","ProbQ on tracks (w/ combine);Combined on-track charge probability;Entries (1/bin)",100,0.,1.);
-  hp[24] = fs->make<TH1F>("h123","ProbQ2D;2D charge probability;Entries (1/bin)",50,0.,1.);
-  hp[25] = fs->make<TH1F>("h124","ProbQ2D on tracks (w/ multiplication);Multiplied on-track 2D charge probability;Entries (1/bin)",100,0.,1.);
-  hp[26] = fs->make<TH1F>("h125","ln(probQ2D) on tracks (w/ multiplication);Multiplied on-track 2D charge probability;Entries (1/bin)",nx,-12.,0.);  
-  hp[27] = fs->make<TH1F>("h126","ProbQ2D on tracks (w/ combine);Combined on-track 2D charge probability;Entries (1/bin)",100,0.,1.);
-  hp[28] = fs->make<TH1F>("h127","probXY2D",50,0.,1.);
-  hp[29] = fs->make<TH1F>("h213","ProbXYQ2D",50,0.,1.);      
+  hp[0] = fs->make<TH1F>("numVertex","number of vertices",60,-0.5,59.5);
+  hp[1] = fs->make<TH1F>("vertexSizeX","vertex x",20,-1.,1.);
+  hp[2] = fs->make<TH1F>("vertexSizeY","vertex y",20,-1.,1.);
+  hp[3] = fs->make<TH1F>("corrNormCluChargeBPix","Corrected normalized Cluster Charge (BPix);Cluster charge;Entries (1/bin)",nx,0.,120000.);
+  hp[4] = fs->make<TH1F>("corrNormCluChargeFPix","Corrected normalized Cluster Charge (FPix);Cluster charge;Entries (1/bin)",nx,0.,120000.);
+  hp[5] = fs->make<TH1F>("probXY","ProbXY;Shape probability;Entries (1/bin)",50,0.,1.);
+  hp[6] = fs->make<TH1F>("probQ","ProbQ;Charge probability;Entries (1/bin)",50,0.,1.);
+  hp[7] = fs->make<TH1F>("probXYQ","ProbXYQ",50,0.,1.);
+  hp[8] = fs->make<TH1F>("log10ProbXY","log10(ProbXY)",nx,-12.,0.);
+  hp[9] = fs->make<TH1F>("log10ProbQ","log10(ProbQ)",nx,-12.,0.);
+  hp[10] = fs->make<TH1F>("probXYQ","log10(ProbXYQ)",nx,-12.,0.);
+  hp[11] = fs->make<TH1F>("log10ProbXY","log10(ProbXY) (ProbQ>0.01)",nx,-12.,0.);
+  hp[12] = fs->make<TH1F>("corrNormCluChargeBPix","Normalized Cluster Charge (BPix);Cluster charge;Entries (1/bin)",nx,0.,120000.);
+  hp[13] = fs->make<TH1F>("corrNormCluChargeFPix","Normalized Cluster Charge (FPix);Cluster charge;Entries (1/bin)",nx,0.,120000.);
+  hp[14] = fs->make<TH1F>("hNotFilled10","Cluster Charge (ProbXY > 0.01);Cluster charge;Entries (1/bin)",nx,0.,200000.);
+  hp[15] = fs->make<TH1F>("hNotFilled11","Cluster Charge (ProbQ>0.01);Cluster charge;Entries (1/bin)",nx,0.,200000.);
+  hp[16] = fs->make<TH1F>("hNotFilled12","Cluster Charge (ProbXYQ>0.01);Cluster charge;Entries (1/bin)",nx,0.,200000.);
+  hp[17] = fs->make<TH1F>("hNotFilled13","dx_temp (bpix); #Deltax (#mum)",nx,-50.,50.);
+  hp[18] = fs->make<TH1F>("hNotFilled14","dy_temp (bpix); #Deltay (#mum)",nx,-50.,50.);
+  hp[19] = fs->make<TH1F>("pt","Track tranverse momentum; pT (GeV)",nx,0.,12.);
+  hp[20] = fs->make<TH1F>("pfull","Track full momentum; p (GeV)",nx,0.,12.);
+  hp[21] = fs->make<TH1F>("multiProbQ","ProbQ on tracks (w/ multiplication);Multiplied on-track charge probability;Entries (1/bin)",100,0.,1.);
+  hp[22] = fs->make<TH1F>("combProbXY","ProbXY on tracks (w/ combine);Combined on-track shape probability;Entries (1/bin)",100,0.,1.);
+  hp[23] = fs->make<TH1F>("combProbQ","ProbQ on tracks (w/ combine);Combined on-track charge probability;Entries (1/bin)",100,0.,1.);
+  hp[24] = fs->make<TH1F>("probQ2D","ProbQ2D;2D charge probability;Entries (1/bin)",50,0.,1.);
+  hp[25] = fs->make<TH1F>("multiProbQ2D","ProbQ2D on tracks (w/ multiplication);Multiplied on-track 2D charge probability;Entries (1/bin)",100,0.,1.);
+  hp[26] = fs->make<TH1F>("lnprobQ2D","ln(probQ2D) on tracks (w/ multiplication);Log of the multiplied on-track 2D charge probability;Entries (1/bin)",nx,-12.,0.);
+  hp[27] = fs->make<TH1F>("combProbQ2D","ProbQ2D on tracks (w/ combine);Combined on-track 2D charge probability;Entries (1/bin)",100,0.,1.);
+  hp[28] = fs->make<TH1F>("probXY2D","ProbXY2D",50,0.,1.);
+  hp[29] = fs->make<TH1F>("probXYQ2D","ProbXY2D x ProbQ2D",50,0.,1.);
   
-  hp[30] = fs->make<TH1F>("h301","",50,0.,1.);
-  hp[31] = fs->make<TH1F>("h302","ProbQ2D on tracks (w/ combine);Combined on-track 2D charge probability;Entries (1/bin)",nx,0.,1.);
-  hp[32] = fs->make<TH1F>("h303","ProbQ on tracks (w/ combine);Combined on-track charge probability;Entries (1/bin)",50,0.,1.);
-  hp[33] = fs->make<TH1F>("h304","Track Quality",17,-1.5,15.5);     
-  hp[34] = fs->make<TH1F>("h218","After cuts: Track pT; pT (GeV)",150,0.,1500.);
-  hp[35] = fs->make<TH1F>("h219","Number of tracks",200,-0.5,999.5);
+  hp[30] = fs->make<TH1F>("lnprobXY2D","ln(probXY2D) on tracks (w/ multiplication);Log of the multiplied on-track 2D shape probability;Entries (1/bin)",nx,-12.,0.);
+  hp[31] = fs->make<TH1F>("combProbXY2D","ProbXY2D on tracks (w/ combine);Combined on-track 2D shape probability;Entries (1/bin)",nx,0.,1.);
+  hp[32] = fs->make<TH1F>("hNotFilled16","ProbQ on tracks (w/ combine);Combined on-track charge probability;Entries (1/bin)",50,0.,1.);
+  hp[33] = fs->make<TH1F>("hTrackQual","Track Quality",17,-1.5,15.5);
+  hp[34] = fs->make<TH1F>("hPtAfterCuts","After cuts: Track pT; pT (GeV)",150,0.,1500.);
+  hp[35] = fs->make<TH1F>("hNumTracks","Number of tracks",200,-0.5,999.5);
   
-  hp[36] = fs->make<TH1F>("h220","After cuts: BPix cotalpha; cot(#alpha)",100,-1.0,1.0);
-  hp[37] = fs->make<TH1F>("h221","After cuts: BPix cotbeta; cot(#beta)",200,-10.,10.);
-  hp[38] = fs->make<TH1F>("h222","After cuts: FPix cotalpha; cot(#alpha)",50,0.0,1.0);
-  hp[39] = fs->make<TH1F>("h223","After cuts: FPix |cotbeta|; |cot(#beta)|",50,0.0,1.0);
+  hp[36] = fs->make<TH1F>("hNotFilled20","After cuts: BPix cotalpha; cot(#alpha)",100,-1.0,1.0);
+  hp[37] = fs->make<TH1F>("hNotFilled21","After cuts: BPix cotbeta; cot(#beta)",200,-10.,10.);
+  hp[38] = fs->make<TH1F>("hNotFilled22","After cuts: FPix cotalpha; cot(#alpha)",50,0.0,1.0);
+  hp[39] = fs->make<TH1F>("hNotFilled23","After cuts: FPix |cotbeta|; |cot(#beta)|",50,0.0,1.0);
   
   hp[40] = fs->make<TH1F>("h107","dx_temp (fpix); #Deltax (#mum)",nx,-100.,100.);
   hp[41] = fs->make<TH1F>("h138","dy_temp (fpix); #Deltay (#mum)",nx,-100.,100.);
@@ -313,7 +313,9 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   hp2[1] = fs->make<TH2F>("h2dEdxEstimatorVsLogP","dEdx vs log track momentum; ln(p) (GeV);dEdx (MeV/cm)",100,0.,10.,100,0.0,6.0);
 #endif
   hp2[2] = fs->make<TH2F>("h2ProbQvsProbXY","ProbQ vs ProbXY; Combined on-track charge probability;Combined on-track shape probability",50,0.,1.,50,0.,1.);
-    
+  hp2[3] = fs->make<TH2F>("h2ProbQvsProbQ2D","ProbQ vs ProbQ2D; Combined on-track charge probability;Combined on-track 2D charge probability",50,0.,1.,50,0.,1.);
+  hp2[4] = fs->make<TH2F>("h2ProbQ2DvsProbXY2D","ProbQ2D vs ProbXY2D; Combined on-track 2D charge probability;Combined on-track 2D shape probability",50,0.,1.,50,0.,1.);
+
   // Set style for the the histograms  
   for(unsigned int i=0; i<hp.size(); ++i) {
     hp[i]->SetLineColor(2);
@@ -535,6 +537,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       
 #ifdef TwoDTempAna
       probQonTrackWMulti2D = 1;
+      probXYonTrackWMulti2D = 1;
       int nprobQOnTrack2D = 0;
 #endif
       
@@ -550,8 +553,8 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
           if(cotalpha > cotamaxb) cotamaxb = cotalpha;
           if(cotbeta < cotbminb) cotbminb = cotbeta;
           if(cotbeta > cotbmaxb) cotbmaxb = cotbeta;
-          hp[36]->Fill(cotalpha);
-          hp[37]->Fill(cotbeta);
+//          hp[36]->Fill(cotalpha);
+//          hp[37]->Fill(cotbeta);
         } else {
           if(cotalpha < cotaminf) cotaminf = cotalpha;
           if(cotalpha > cotamaxf) cotamaxf = cotalpha;
@@ -559,8 +562,8 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
           if(cotbeta > cotbmaxf) cotbmaxf = cotbeta;
           if(fabsf(cotbeta) < cotabminf) cotabminf = fabsf(cotbeta);
           if(fabsf(cotbeta) > cotabmaxf) cotabmaxf = fabsf(cotbeta);
-          hp[38]->Fill(cotalpha);
-          hp[39]->Fill(fabs(cotbeta));
+//          hp[38]->Fill(cotalpha);
+//          hp[39]->Fill(fabs(cotbeta));
         }
           
         //  If track angle is larger than the nominal acceptance, skip it        
@@ -890,13 +893,13 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             hp[77]->Fill(sizex);
             hp[78]->Fill(sizey);
 //             if (probQ!=0 && layer!=1) nprobQOnTrack++;
-            if (probQ!=0) nprobQOnTrack++;
+            if (probQ!=0 && probQ!=1) nprobQOnTrack++;
 //             if (probQ<0.01) cout << "ProbQ < 0.01 for PID0: " <<  PID0 << endl;
 //             if (probQ<0.01 && PID0==211) continue; // no pions
 //             if (probQ<0.01 && PID0==11) continue; //no electrons
 //             if(layer!=1) {
-            if (probQ!=0) probQonTrackWMulti *= probQ; // \alpha_n in formula
-            if (probXY!=0) probXYonTrackWMulti *= probXY; // \alpha_n in formula
+            if (probQ!=0 && probQ!=1) probQonTrackWMulti *= probQ; // \alpha_n in formula
+            if (probXY!=0 && probXY!=1) probXYonTrackWMulti *= probXY; // \alpha_n in formula
 //             } else {
 //                 removePixelLayer1 = true;
 //             }
@@ -912,7 +915,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
           SiPixelTemplateReco2D::ClusMatrix clusterPayload2d{&cluster2d[0][0], xdouble, ydouble, mrow,mcol};
           int npixels;
-          ierr = PixelTempReco2D(TemplID2, 
+          ierr2 = PixelTempReco2D(TemplID2,
                                  cotalpha, 
                                  cotbeta, 
                                  locBz, 
@@ -930,9 +933,9 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
                                  qbin2D, 
                                  deltay,
                                  npixels); 
-          if(ierr != 0) {
+          if(ierr2 != 0) {
             ++nbad;
-            if(nbad < 50) {printf("2D Template reco with ID %d of cotalpha/cotbeta = %f/%f failed with error %d \n", TemplID2, cotalpha, cotbeta, ierr);}
+            if(nbad < 50) {printf("2D Template reco with ID %d of cotalpha/cotbeta = %f/%f failed with error %d \n", TemplID2, cotalpha, cotbeta, ierr2);}
           } else {
             if (verbosity>2) cout << "----------- 2D template analysis on a cluster -----------" <<endl;
             //xtemp = xoff + xrec2D;
@@ -962,8 +965,9 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             hp[29]->Fill(probXYQ2D);
             
             if(probXY2D < pcut) continue; //TODO
-            if (probQ2D!=0) nprobQOnTrack2D++;
-            probQonTrackWMulti2D *= probQ2D;
+            if (probQ2D!=0 && probQ2D!=1) nprobQOnTrack2D++;
+            if (probQ2D!=0 && probQ2D!=1) probQonTrackWMulti2D *= probQ2D;
+            if (probXY2D!=0 && probXY2D!=1) probXYonTrackWMulti2D *= probXY2D; // \alpha_n in formula
 //             cout << "probQonTrackWMulti2D " << probQonTrackWMulti2D <<endl;
 //             if(probQonTrackWMulti2D > 0.00000001) cout << "log probQonTrackWMulti2D " << log(probQonTrackWMulti2D) << endl;
           } // end if there is no error from the template analysis 2D
@@ -1013,7 +1017,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         if (verbosity>0) cout << "   probQonTrack " << probQonTrack << endl;
         if (verbosity>3) if (probQonTrack>0.98) cout << "probQonTrack is more then 0.98 in event " << event << endl;;
         hp[23]->Fill(probQonTrack);
-        hp[32]->Fill(probQonTrack);
+//        hp[32]->Fill(probQonTrack);
         hp[22]->Fill(probXYonTrack);
         hp2[2]->Fill(probQonTrack,probXYonTrack);
         
@@ -1022,19 +1026,28 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         if (verbosity>1) cout << "probQonTrackWMulti2D outside the cluster loop is " << probQonTrackWMulti2D <<endl;
         hp[25]->Fill(probQonTrackWMulti2D);
         logprobQonTrackWMulti2D = log(probQonTrackWMulti2D);
+        logprobXYonTrackWMulti2D = log(probXYonTrackWMulti2D);
         if(probQ2D > 0.00001) hp[26]->Fill(logprobQonTrackWMulti2D);
+        if(probXY2D > 0.00001) hp[30]->Fill(logprobXYonTrackWMulti2D);
         probQonTrackTerm2D = 0;
+        probXYonTrackTerm2D = 0;
         for(int iTkCl = 0; iTkCl < nprobQOnTrack2D; ++iTkCl) {
             probQonTrackTerm2D += ((pow(-logprobQonTrackWMulti2D,iTkCl))/(factorial(iTkCl)));
+            probXYonTrackTerm2D += ((pow(-logprobXYonTrackWMulti2D,iTkCl))/(factorial(iTkCl)));
 //             cout << "For cluster " << iTkCl << " pow(-logprobQonTrackWMulti2D,iTkCl) is " << pow(-logprobQonTrackWMulti2D,iTkCl) << endl;
             if (verbosity>1) cout << "For cluster " << iTkCl  << " the probQonTrackTerm2D is " << probQonTrackTerm2D << endl;
+            if (verbosity>1) cout << "For cluster " << iTkCl  << " the probXYonTrackTerm2D is " << probXYonTrackTerm2D << endl;
         }
           
         probQonTrack2D = probQonTrackWMulti2D*probQonTrackTerm2D;
+        probXYonTrack2D  = probXYonTrackWMulti2D*probXYonTrackTerm2D;
         if (verbosity>0) cout << "   probQonTrack2D " << probQonTrack2D << endl;
+        if (verbosity>0) cout << "   probXYonTrack2D " << probXYonTrack2D << endl;
         if (verbosity>3) if (probQonTrack2D>0.98) cout << "probQonTrack2D is more then 0.98 in event " << event << endl;;
         hp[27]->Fill(probQonTrack2D);
-        hp[31]->Fill(probQonTrack2D);
+        hp[31]->Fill(probXYonTrack2D);
+        hp2[3]->Fill(probQonTrack,probQonTrack2D);
+        hp2[4]->Fill(probQonTrack2D,probXYonTrack2D);
 #endif
       } // end of loop over tracks
    } //end cycle for events
