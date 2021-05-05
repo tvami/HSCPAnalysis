@@ -125,7 +125,8 @@ class HSCPStudy : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       virtual void beginJob() override;
       virtual void analyze(const edm::Event&, const edm::EventSetup&) override;
       virtual void endJob() override;
-      int             verbosity; 
+      int             verbosity;
+      bool            removePixelLayer1Label;
       std::string     fileName; 
 };
 
@@ -142,10 +143,10 @@ class HSCPStudy : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
 //
 HSCPStudy::HSCPStudy(const edm::ParameterSet& iConfig):
    verbosity(iConfig.getUntrackedParameter<int>("Verbosity", 0)),
+   removePixelLayer1Label(iConfig.getUntrackedParameter<bool>("RemovePixelLayer1", false)),
    fileName(iConfig.getUntrackedParameter<string>("rootFileName", string("pixelTree.root")))
 {
 }
-
 
 HSCPStudy::~HSCPStudy()
 {
@@ -186,7 +187,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   static vector<int> nbin(5,0);
   int i, j, ierr, ierr2, qbin;
   bool bpix;
-//   bool removePixelLayer1 = false;
+   
   double log10probXY, log10probQ, log10probXYQ, logprobQonTrackWMulti, logprobXYonTrackWMulti, qclust, qnorm, qnormcorr, proba, probXY, probXYQ, dx, dy, TkP, xhmod, yhmod;
   static int iy, ix, ngood, nbad, speed, /*IDF1,*/ ring;	
   static char /*infile[150],*/ header[80], /*outfile[150],*/ outfile0[80], outfile1[80], outfile2[80];
@@ -195,6 +196,8 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   float xpitch, ypitch, logTkP;
   int factorial(int);
   const std::string currentDate();
+    
+  bool removePixelLayer1 = removePixelLayer1Label;
   
 
 #ifdef TwoDTempAna
@@ -229,10 +232,10 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   hp[11] = fs->make<TH1F>("log10ProbXY","log10(ProbXY) (ProbQ>0.01)",nx,-12.,0.);
   hp[12] = fs->make<TH1F>("corrNormCluChargeBPix","Normalized Cluster Charge (BPix);Cluster charge;Entries (1/bin)",nx,0.,120000.);
   hp[13] = fs->make<TH1F>("corrNormCluChargeFPix","Normalized Cluster Charge (FPix);Cluster charge;Entries (1/bin)",nx,0.,120000.);
-  hp[14] = fs->make<TH1F>("hNotFilled10","Cluster Charge (ProbXY > 0.01);Cluster charge;Entries (1/bin)",nx,0.,200000.);
-  hp[15] = fs->make<TH1F>("hNotFilled11","Cluster Charge (ProbQ>0.01);Cluster charge;Entries (1/bin)",nx,0.,200000.);
-  hp[16] = fs->make<TH1F>("hNotFilled12","Cluster Charge (ProbXYQ>0.01);Cluster charge;Entries (1/bin)",nx,0.,200000.);
-  hp[17] = fs->make<TH1F>("hNotFilled13","dx_temp (bpix); #Deltax (#mum)",nx,-50.,50.);
+  hp[14] = fs->make<TH1F>("cluChargeProbQHigh","Cluster Charge (ProbQ > 0.98);Cluster charge;Entries (1/bin)",nx,0.,200000.);
+  hp[15] = fs->make<TH1F>("cluSizeProbQHigh","Cluster Size  (ProbQ > 0.98);Cluster size;Entries (1/bin)",20,0.,20.);
+  hp[16] = fs->make<TH1F>("cluSizeXProbQHigh","Cluster Size X  (ProbQ > 0.98);Cluster size X;Entries (1/bin)",20,0.,20.);
+  hp[17] = fs->make<TH1F>("cluSizeYProbQHigh","Cluster Size Y  (ProbQ > 0.98);Cluster size Y;Entries (1/bin)",20,0.,20.);
   hp[18] = fs->make<TH1F>("hNotFilled14","dy_temp (bpix); #Deltay (#mum)",nx,-50.,50.);
   hp[19] = fs->make<TH1F>("pt","Track tranverse momentum; pT (GeV)",nx,0.,12.);
   hp[20] = fs->make<TH1F>("pfull","Track full momentum; p (GeV)",nx,0.,12.);
@@ -241,12 +244,12 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   hp[23] = fs->make<TH1F>("combProbQ","ProbQ on tracks (w/ combine);Combined on-track charge probability;Entries (1/bin)",100,0.,1.);
   hp[24] = fs->make<TH1F>("probQ2D","ProbQ2D;2D charge probability;Entries (1/bin)",50,0.,1.);
   hp[25] = fs->make<TH1F>("multiProbQ2D","ProbQ2D on tracks (w/ multiplication);Multiplied on-track 2D charge probability;Entries (1/bin)",100,0.,1.);
-  hp[26] = fs->make<TH1F>("lnprobQ2D","ln(probQ2D) on tracks (w/ multiplication);Log of the multiplied on-track 2D charge probability;Entries (1/bin)",nx,-12.,0.);
+  hp[26] = fs->make<TH1F>("logprobQ2D","ln(probQ2D) on tracks (w/ multiplication);Log of the multiplied on-track 2D charge probability;Entries (1/bin)",nx,-12.,0.);
   hp[27] = fs->make<TH1F>("combProbQ2D","ProbQ2D on tracks (w/ combine);Combined on-track 2D charge probability;Entries (1/bin)",100,0.,1.);
   hp[28] = fs->make<TH1F>("probXY2D","ProbXY2D",50,0.,1.);
   hp[29] = fs->make<TH1F>("probXYQ2D","ProbXY2D x ProbQ2D",50,0.,1.);
   
-  hp[30] = fs->make<TH1F>("lnprobXY2D","ln(probXY2D) on tracks (w/ multiplication);Log of the multiplied on-track 2D shape probability;Entries (1/bin)",nx,-12.,0.);
+  hp[30] = fs->make<TH1F>("logprobXY2D","ln(probXY2D) on tracks (w/ multiplication);Log of the multiplied on-track 2D shape probability;Entries (1/bin)",nx,-12.,0.);
   hp[31] = fs->make<TH1F>("combProbXY2D","ProbXY2D on tracks (w/ combine);Combined on-track 2D shape probability;Entries (1/bin)",nx,0.,1.);
   hp[32] = fs->make<TH1F>("hNotFilled16","ProbQ on tracks (w/ combine);Combined on-track charge probability;Entries (1/bin)",50,0.,1.);
   hp[33] = fs->make<TH1F>("hTrackQual","Track Quality",17,-1.5,15.5);
@@ -434,7 +437,6 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
     if(jentry%1000 == 0) cout<<" jentry: "<< jentry <<" event: "<<event<<" run: "<<run<<" lumiSect: "<<lumiSect<<endl;
 	cout<<"jentry: "<<jentry <<" event: "<<event<<" run: "<<run<<" lumiSect: "<<lumiSect<<endl;
-//     continue;
      
     int nclus = ana->ClN;
     int ndigis = ana->DgN;
@@ -574,7 +576,6 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         size = ana->ClSize[iCl];
         sizex = ana->ClSizeX[iCl];
         sizey = ana->ClSizeY[iCl];
-        if(sizex < 0 || sizey < 0) continue;
            
         //Make sure that the cluster can fit into the container        
         if(sizex > (TXSIZE-2)) continue;
@@ -594,68 +595,28 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         if(ana->ClDisk[iCl] < -10) {
           qscale = qscaleB;
           layer = ana->ClLayer[iCl];
-//           module = ana->ClModule[iCl];
-//           ladder = ana->ClLadder[iCl];
-//           if(ladder < 0) {
-//             offladder = qlad[layer-1] + abs(ladder);
-//           } else {
-//             int qladp1 = qlad[layer-1] + 1;
-//             if(ladder < qladp1) {
-//               offladder = qladp1 - ladder;
-//             } else {
-//               offladder = tladp1[layer-1] - ladder;
-//             }
           }
 
- //       printf("layer/module/ladder/offladder = %d/%d/%d/%d \n", layer, module, ladder, offladder);
-//           if(module < 0) {ring = module+4;} else {ring = module+3;}
-//           ID = bptmp[layer-1][ring];
-//        printf("layer/module/ring/ladder/ID = %d/%d/%d/%d/%d \n", layer, module, ring, ladder, ID);
-//           llayer = layer;
-//           if(newmodule[layer-1][offladder-1][ring]){
-// //             ID = bpnew;
-//             llayer = layer+4;
-//           }
-
         else {
-                  bpix = false;
-                  qscale = qscaleF;
+          bpix = false;
+          qscale = qscaleF;
 //                  printf("disk/ring/panel/blade = %d/%d/%d/%d \n", fClDisk[iCl], fClRing[iCl], fClPanel[iCl], fClBlade[iCl]);
-                  disk = ana->ClDisk[iCl];
+          disk = ana->ClDisk[iCl];
 //                   if(disk < 0) {side = 1;} else {side = 2;}
-                  disk = abs(disk);
-                  ring = abs(ana->ClRing[iCl]);
-                  panel = abs(ana->ClPanel[iCl]);
+          disk = abs(disk);
+          ring = abs(ana->ClRing[iCl]);
+          panel = abs(ana->ClPanel[iCl]);
 //                   onblade = ana->ClBlade[iCl];
-                  if(ring == 2) {
-                     if(panel == 1) {layer = 1;} else {layer = 4;}
-                  } else {
-                     if(panel == 1) {layer = 2;} else {layer = 3;}
-                  }
-                  llayer = layer;
-//                   ID = fptmp[side-1][disk-1][layer-1];
-//  Convert the online blade number to an offline blade number
-//                   if(ring == 1) {
-//                      if(onblade < 0) {
-//                         blade = 6 - onblade;
-//                      } else {
-//                         if(onblade < 7) {blade = 7 - onblade;} else {blade = 29 - onblade;}
-//                      }
-//                    } else {
-//                      if(onblade < 0) {
-//                         blade = 31 - onblade;
-//              } else {
-//                if(onblade < 10) {blade = 32 - onblade;} else {blade = 66 - onblade;}
-//              }
-//            }
-
-                  
-//                  cout << "ID/fClDisk/fClPanel/fClPlaquette/layer = " << ID << "/" << fClDisk[iCl] << "/" << fClPanel[iCl] << "/" << fClPlaquette[iCl] << "/" << layer << endl;
-//                  cout << "side/disk/fClBlade/ring/blade = " << side << "/" << disk << "/" << fClBlade[iCl] << "/" << ring << "/" << blade << endl << endl;
-         }
+         if(ring == 2) {
+           if(panel == 1) {layer = -1;} else {layer = -4;}
+         } else {
+           if(panel == 1) {layer = -2;} else {layer = -3;}
+           }
+           llayer = layer;
+        }
 
                     
-          // Look for clusters that traverse minimal material (layer 1, flipped modules)        
+          // Look for clusters that traverse minimal material (layer 1, flipped modules)
           //        if(ana->ClLayer[iCl] != 1 || fClFlipped[iCl] != 1) continue;
           
           for(j=0; j<TXSIZE; ++j) {for(i=0; i<TYSIZE; ++i) {cluster[j][i] = 0.;} } 
@@ -718,12 +679,8 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 #endif
             
             // and double pixel flags          
-            if (row == 79 || row == 80){
-              xdouble[ix] = true;
-            }
-            if (col % 52 == 0 || col % 52 == 51 ){
-              ydouble[iy] = true;
-            }
+            if (row == 79 || row == 80){ xdouble[ix] = true; }
+            if (col % 52 == 0 || col % 52 == 51 ){ ydouble[iy] = true; }
           }
 
           xhit = ana->ClRhLx[iCl]*10000.;
@@ -731,8 +688,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
           xhmod = (double)xhit - floor((double)xhit/8100.)*8100.;
           yhmod = (double)yhit - floor((double)yhit/8100.)*8100.;
           
-// remove hits with reconstructed positions near edges to avoid bias
-          
+          // remove hits with reconstructed positions near edges to avoid bias
           if((xhmod < 400.) || (xhmod > 7700.)) continue;
           if(yhmod < 600. || yhmod > 7500.) continue;
 
@@ -769,6 +725,10 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
           // p,pt after cuts
           hp[34]->Fill(ana->TkPt[iTk]);
 //           cout << "ana->TkPt[iTk]: " << ana->TkPt[iTk] << endl;
+          
+          qnorm = qclust/sqrt((double)(1.+cotbeta*cotbeta+cotalpha*cotalpha));
+          if(qnorm < 10000.) continue;
+          
           // 1D templat analysis
           SiPixelTemplateReco::ClusMatrix clusterPayload{&cluster[0][0], xdouble, ydouble, mrow,mcol};
           locBx = 1.;
@@ -834,7 +794,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             hp[9]->Fill(log10probQ);
             hp[10]->Fill(log10probXYQ);
             if(probQ > 0.01) hp[11]->Fill(log10probXY);
-            qnorm = qclust/sqrt((double)(1.+cotbeta*cotbeta+cotalpha*cotalpha)); 
+
 
             if(bpix) {
                 hp[12]->Fill(qnorm);
@@ -872,9 +832,7 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             
             squareSumCharge += pow((3.61e-05*qnormcorr),-2); //3.61e-06 multi to have the correct order of magnitudes
             if (verbosity>4) std::cout << "squareSumCharge: " << squareSumCharge << std::endl;
-//             if(probXY > 0.01) {hp[14]->Fill(qclust);}
-//             if(probQ > 0.01) {hp[15]->Fill(qclust);}
-//             if(probXYQ > 0.01) {hp[16]->Fill(qclust);}
+
             if(bpix) {
               hp[17]->Fill(dx);
               hp[18]->Fill(dy);
@@ -889,20 +847,34 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
               hp[ihist+1]->Fill(dy);
             }
             if(probXY < pcut) continue; //TODO
+            if(qnorm < 10000.) continue;
             hp[76]->Fill(size);
             hp[77]->Fill(sizex);
             hp[78]->Fill(sizey);
-//             if (probQ!=0 && layer!=1) nprobQOnTrack++;
-            if (probQ!=0 && probQ!=1) nprobQOnTrack++;
+
 //             if (probQ<0.01) cout << "ProbQ < 0.01 for PID0: " <<  PID0 << endl;
 //             if (probQ<0.01 && PID0==211) continue; // no pions
 //             if (probQ<0.01 && PID0==11) continue; //no electrons
-//             if(layer!=1) {
-            if (probQ!=0 && probQ!=1) probQonTrackWMulti *= probQ; // \alpha_n in formula
-            if (probXY!=0 && probXY!=1) probXYonTrackWMulti *= probXY; // \alpha_n in formula
-//             } else {
-//                 removePixelLayer1 = true;
-//             }
+            if(removePixelLayer1 && ana->ClLayer[iTkCl]!=1) {
+                if (verbosity>0) cout << "Layer 1 is not counted in 1D reco calc" << endl;
+                if (probQ>0.98) {
+                    hp[14]->Fill(qnorm);
+                    hp[15]->Fill(size);
+                    hp[16]->Fill(sizex);
+                    hp[17]->Fill(sizey);
+                    cout << "ProbQ is " << probQ << " and probXY is " << probXY  << " on Layer " << ana->ClLayer[iTkCl] << " or Disk " << ana->ClDisk[iTkCl]  << endl;
+                    cout << " size is " << size << " and sizeX is " << sizex << " and sizeY " << sizey  << endl;
+                    cout << " qnorm is " << qnorm << " and cotalpha " << cotalpha << " and cotbeta " << cotbeta << endl;
+                    cout << " ----------------------------------------------------------------------------- " << endl;
+                }
+                if (probQ!=0 && probQ!=1 ) nprobQOnTrack++;
+                if (probQ!=0 && probQ!=1) probQonTrackWMulti *= probQ; // \alpha_n in formula
+                if (probXY!=0 && probXY!=1) probXYonTrackWMulti *= probXY; // \alpha_n in formula
+            } else {
+                if (probQ!=0 && probQ!=1) nprobQOnTrack++;
+                if (probQ!=0 && probQ!=1 ) probQonTrackWMulti *= probQ; // \alpha_n in formula
+                if (probXY!=0 && probXY!=1) probXYonTrackWMulti *= probXY; // \alpha_n in formula
+            }
             
 //             cout << "probQonTrackWMulti " << probQonTrackWMulti <<endl;
 //             if(probQonTrackWMulti > 0.00000001) cout << "log probQonTrackWMulti " << log(probQonTrackWMulti) << endl;
@@ -965,9 +937,18 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             hp[29]->Fill(probXYQ2D);
             
             if(probXY2D < pcut) continue; //TODO
-            if (probQ2D!=0 && probQ2D!=1) nprobQOnTrack2D++;
-            if (probQ2D!=0 && probQ2D!=1) probQonTrackWMulti2D *= probQ2D;
-            if (probXY2D!=0 && probXY2D!=1) probXYonTrackWMulti2D *= probXY2D; // \alpha_n in formula
+            if(qnorm < 10000.) continue;
+              
+            if(removePixelLayer1) {
+                if (verbosity>0) cout << "Layer 1 is not counted in 2D reco calc" << endl;
+                if (probQ2D!=0 && probQ2D!=1 && ana->ClLayer[iTkCl]!=1) nprobQOnTrack2D++;
+                if (probQ2D!=0 && probQ2D!=1 && ana->ClLayer[iTkCl]!=1) probQonTrackWMulti2D *= probQ2D; // \alpha_n in formula
+                if (probXY2D!=0 && probXY2D!=1 && ana->ClLayer[iTkCl]!=1) probXYonTrackWMulti2D *= probXY2D; // \alpha_n in formula
+            } else {
+                if (probQ2D!=0 && probQ2D!=1) nprobQOnTrack2D++;
+                if (probQ2D!=0 && probQ2D!=1) probQonTrackWMulti2D *= probQ2D;
+                if (probXY2D!=0 && probXY2D!=1) probXYonTrackWMulti2D *= probXY2D; // \alpha_n in formula
+              }
 //             cout << "probQonTrackWMulti2D " << probQonTrackWMulti2D <<endl;
 //             if(probQonTrackWMulti2D > 0.00000001) cout << "log probQonTrackWMulti2D " << log(probQonTrackWMulti2D) << endl;
           } // end if there is no error from the template analysis 2D
@@ -978,15 +959,15 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 //         if (removePixelLayer1) TkClN=TkClN-1;
         if(nprobQOnTrack!=TkClN) {
             if (verbosity>2) cout << "Error: nprobQOnTrack!=TkClN" << endl;
-            continue;
+            continue; //TODO
         }
         if(nprobQOnTrack < 2) {
             if (verbosity>2) cout << "Error: nprobQOnTrack==TkClN but nprobQOnTrack < 2" << endl;
             continue;
         }
-	if (verbosity>2) cout << "nprobQOnTrack: " << nprobQOnTrack << endl;
+	    if (verbosity>2) cout << "nprobQOnTrack: " << nprobQOnTrack << endl;
         if (verbosity>1) cout << "probQonTrackWMulti outside the cluster loop is " << probQonTrackWMulti <<endl;
-        /*if(layer!=1)*/ hp[21]->Fill(probQonTrackWMulti);
+        hp[21]->Fill(probQonTrackWMulti);
         logprobQonTrackWMulti = log(probQonTrackWMulti);
         logprobXYonTrackWMulti = log(probXYonTrackWMulti);
         if(probQ > 0.00001) hp[22]->Fill(logprobQonTrackWMulti);
@@ -999,10 +980,9 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             if (verbosity>1) cout << "For cluster " << iTkCl << " the probQonTrackTerm is " << probQonTrackTerm << " the probXYonTrackTerm is " << probXYonTrackTerm <<  endl;
         }
           
-//         if(layer!=1) {
          probQonTrack = probQonTrackWMulti*probQonTrackTerm;
          probXYonTrack = probXYonTrackWMulti*probXYonTrackTerm;
-//         }
+        
         //if(probXYonTrack<0.98) continue;
         dEdxEstimator = pow((squareSumCharge/TkClN),-0.5); 
         if (verbosity>4) std::cout << "TkClN: " << TkClN << " dEdxEstimator: " << dEdxEstimator << std::endl;
