@@ -54,13 +54,15 @@ else:
 #process.GlobalTag.DumpStat = cms.untracked.bool(True)
 
 process.TFileService = cms.Service('TFileService',
-                                 fileName = cms.string('HSCPAna_Run'+str(opt.runNumber)+'.root'),
+                                 #fileName = cms.string('HSCPAna_Run'+str(opt.runNumber)+'.root'),
+                                 fileName = cms.string('output.root'),
                                  )
 
 if (opt.runNumber >1):
     if (opt.inputFileName):
         print("We will use the input "+str(opt.inputFileName))
         FileName = cms.untracked.string(opt.inputFileName)
+        #FileName = cms.untracked.string("root://cms-xrd-global.cern.ch//store/user/tvami/PixelTrees/SingleMuon/crab_ALCARECO_2018B_PixelTrees_v1/200610_183214/0000/PixelTree_1.root")
     else:
         print("We will use the input pixelTree_Run"+str(opt.runNumber)+".root")
         FileName = cms.untracked.string("file:/afs/cern.ch/work/t/tvami/public/MonitoringTrees/CMSSW_11_0_0_pre9/src/2018ALCARECOBasedPixelTree/pixelTree_Run"+str(opt.runNumber)+".root")
@@ -70,8 +72,10 @@ else:
         
 # Execute         
 process.analysis = cms.EDAnalyzer("HSCPStudy",
-    Verbosity = cms.untracked.int32(4),
-    rootFileName = FileName
+    Verbosity = cms.untracked.int32(0),
+    ptCut = cms.untracked.double(100.0),
+    rootFileName = FileName,
+    RemovePixelLayer1 = cms.untracked.bool(True),
 )
 
 process.p = cms.Path(process.analysis)
