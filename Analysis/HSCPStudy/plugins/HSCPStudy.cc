@@ -126,6 +126,7 @@ class HSCPStudy : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       virtual void analyze(const edm::Event&, const edm::EventSetup&) override;
       virtual void endJob() override;
       int             verbosity;
+      double          ptCutLabel;
       bool            removePixelLayer1Label;
       std::string     fileName; 
 };
@@ -143,6 +144,7 @@ class HSCPStudy : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
 //
 HSCPStudy::HSCPStudy(const edm::ParameterSet& iConfig):
    verbosity(iConfig.getUntrackedParameter<int>("Verbosity", 0)),
+   ptCutLabel(iConfig.getUntrackedParameter<double>("ptCut", 3.0)),
    removePixelLayer1Label(iConfig.getUntrackedParameter<bool>("RemovePixelLayer1", false)),
    fileName(iConfig.getUntrackedParameter<string>("rootFileName", string("pixelTree.root")))
 {
@@ -346,7 +348,8 @@ HSCPStudy::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 //   pcut = 0.01, tkpcut = 10., lowpt = 1, qscaleB=1., qscaleF=1.;
 //   pcut = 0.5, tkpcut = 5., lowpt = 0, qscaleB=1., qscaleF=1.;
 //     pcut = 0.01, tkpcut = 3, lowpt = 0, qscaleB=1., qscaleF=1.;
-     pcut = 0.01, tkpcut = 100, lowpt = 0, qscaleB=1., qscaleF=1.;
+     pcut = 0.01, lowpt = 0, qscaleB=1., qscaleF=1.;
+    tkpcut = ptCutLabel;
 //
 
   printf("probability cut = %f, momentum cut = %f, lowpt = %d, bpix scale factor = %f, fpix scale factor = %f \n", pcut, tkpcut, lowpt, qscaleB, qscaleF);
